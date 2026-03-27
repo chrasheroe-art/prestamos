@@ -220,12 +220,12 @@ body { background: var(--bg); color: var(--text); min-height: 100vh; }
   </div>
   <div class="detail-body">
     <div class="reminder-row">
-      <button class="reminder-btn" id="wa-btn">
+      <a class="reminder-btn" id="wa-btn" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;">
         <span>📱</span> WhatsApp
-      </button>
-      <button class="reminder-btn" id="sms-btn">
+      </a>
+      <a class="reminder-btn" id="sms-btn" href="#" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;">
         <span>💬</span> SMS
-      </button>
+      </a>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:4px;">
       <button class="tab active" style="flex:1;padding:10px;font-size:14px;" onclick="detailTab('deudas', this)" id="dt-deudas">Deudas</button>
@@ -523,27 +523,24 @@ function openDetail(clientId) {
   const phone = client ? (client.telefono || '') : '';
   const msg = encodeURIComponent('Hola ' + name + ', te recuerdo que tienes un saldo pendiente de ' + fmt(total) + '. Por favor contactame para coordinar el pago. Gracias!');
 
-  document.getElementById('wa-btn').onclick = function() {
-    var num = phone.replace(/\D/g, '');
-    if (!num) { showNotif('Este cliente no tiene telefono registrado'); return; }
-    if (num.length === 10) num = '52' + num;
-    var url = 'https://wa.me/' + num + '?text=' + msg;
-    var a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-  document.getElementById('sms-btn').onclick = function() {
-    if (!phone) { showNotif('Este cliente no tiene telefono registrado'); return; }
-    var a = document.createElement('a');
-    a.href = 'sms:' + phone + '?body=' + msg;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
+  var num = phone.replace(/\D/g, '');
+  if (num.length === 10) num = '52' + num;
+  var waBtn = document.getElementById('wa-btn');
+  var smsBtn = document.getElementById('sms-btn');
+  if (num) {
+    waBtn.href = 'https://wa.me/' + num + '?text=' + msg;
+    waBtn.onclick = null;
+  } else {
+    waBtn.href = '#';
+    waBtn.onclick = function(e) { e.preventDefault(); showNotif('Este cliente no tiene telefono registrado'); };
+  }
+  if (phone) {
+    smsBtn.href = 'sms:' + phone + '?body=' + msg;
+    smsBtn.onclick = null;
+  } else {
+    smsBtn.href = '#';
+    smsBtn.onclick = function(e) { e.preventDefault(); showNotif('Este cliente no tiene telefono registrado'); };
+  }
 
   renderDetailPayments(clientId, 'deudas');
   document.getElementById('detail-view').classList.add('open');
