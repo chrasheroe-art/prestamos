@@ -527,11 +527,22 @@ function openDetail(clientId) {
     var num = phone.replace(/\D/g, '');
     if (!num) { showNotif('Este cliente no tiene telefono registrado'); return; }
     if (num.length === 10) num = '52' + num;
-    window.open('https://wa.me/' + num + '?text=' + msg, '_blank');
+    var url = 'https://wa.me/' + num + '?text=' + msg;
+    var a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
   document.getElementById('sms-btn').onclick = function() {
     if (!phone) { showNotif('Este cliente no tiene telefono registrado'); return; }
-    window.open('sms:' + phone + '?body=' + msg, '_blank');
+    var a = document.createElement('a');
+    a.href = 'sms:' + phone + '?body=' + msg;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   renderDetailPayments(clientId, 'deudas');
