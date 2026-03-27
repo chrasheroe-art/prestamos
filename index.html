@@ -521,14 +521,17 @@ function openDetail(clientId) {
   document.getElementById('detail-total').textContent = fmt(total);
   
   const phone = client ? (client.telefono || '') : '';
-  const msg = encodeURIComponent(`Hola ${name}, te recuerdo que tienes un saldo pendiente de ${fmt(total)}. Por favor contáctame para coordinar el pago. ¡Gracias!`);
-  
-  document.getElementById('wa-btn').onclick = () => {
-    const num = phone.replace(/\D/g,'');
-    window.open(`https://wa.me/${num}?text=${msg}`, '_blank');
+  const msg = encodeURIComponent('Hola ' + name + ', te recuerdo que tienes un saldo pendiente de ' + fmt(total) + '. Por favor contactame para coordinar el pago. Gracias!');
+
+  document.getElementById('wa-btn').onclick = function() {
+    var num = phone.replace(/\D/g, '');
+    if (!num) { showNotif('Este cliente no tiene telefono registrado'); return; }
+    if (num.length === 10) num = '52' + num;
+    window.open('https://wa.me/' + num + '?text=' + msg, '_blank');
   };
-  document.getElementById('sms-btn').onclick = () => {
-    window.open(`sms:${phone}?body=${msg}`, '_blank');
+  document.getElementById('sms-btn').onclick = function() {
+    if (!phone) { showNotif('Este cliente no tiene telefono registrado'); return; }
+    window.open('sms:' + phone + '?body=' + msg, '_blank');
   };
 
   renderDetailPayments(clientId, 'deudas');
@@ -753,17 +756,24 @@ async function saveAbono() {
   btn.disabled = false; btn.textContent = 'Guardar abono';
 }
 
+let savingClient = false;
 async function saveClient() {
+  if (savingClient) return;
   const name = document.getElementById('client-name').value.trim();
   const phone = document.getElementById('client-phone').value.trim();
   const notes = document.getElementById('client-notes').value.trim();
   if (!name) { showNotif('Ingresa un nombre'); return; }
+  savingClient = true;
+  const btn = document.querySelector('#modal-client .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
   try {
     await postData({ action: 'addClient', nombre: name, telefono: phone, notas: notes });
     showNotif('✓ Cliente creado');
     closeModal('modal-client');
     await loadData();
   } catch(e) { showNotif('Error al guardar'); }
+  savingClient = false;
+  if (btn) { btn.disabled = false; btn.textContent = 'Guardar cliente'; }
 }
 
 async function saveSettings() {
