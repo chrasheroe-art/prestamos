@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>PrestApp - Gestión de Préstamos</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #D4A853;
+  --gold-light: #F5E6C8;
+  --gold-dark: #A07830;
+  --green: #2D7A4F;
+  --green-light: #E8F5EE;
+  --red: #C0392B;
+  --red-light: #FDECEA;
+  --bg: #F7F5F0;
+  --surface: #FFFFFF;
+  --text: #1A1A1A;
+  --text-muted: #6B6B6B;
+  --border: rgba(0,0,0,0.08);
+  --radius: 16px;
+  --radius-sm: 10px;
+  font-family: 'DM Sans', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* HEADER */
+.header { background: var(--gold); padding: 16px 20px 20px; position: sticky; top: 0; z-index: 100; }
+.header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.header h1 { font-size: 22px; font-weight: 600; color: #fff; letter-spacing: -0.5px; }
+.header-sub { font-size: 13px; color: rgba(255,255,255,0.75); }
+.icon-btn { background: rgba(255,255,255,0.2); border: none; border-radius: 50%; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: background 0.2s; }
+.icon-btn:hover { background: rgba(255,255,255,0.35); }
+
+/* TABS */
+.tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); }
+.tab { flex: 1; padding: 14px; text-align: center; font-size: 14px; font-weight: 500; cursor: pointer; border: none; background: none; color: var(--text-muted); border-bottom: 3px solid transparent; transition: all 0.2s; }
+.tab.active { color: var(--gold-dark); border-bottom-color: var(--gold); }
+
+/* SUMMARY CARD */
+.summary { background: var(--surface); margin: 16px; border-radius: var(--radius); padding: 20px; border: 1px solid var(--border); }
+.summary-amount { font-size: 36px; font-weight: 600; letter-spacing: -1px; color: var(--text); font-family: 'DM Mono', monospace; }
+.summary-label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+.summary-badges { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.badge { font-size: 12px; padding: 4px 10px; border-radius: 20px; font-weight: 500; }
+.badge-green { background: var(--green-light); color: var(--green); }
+.badge-red { background: var(--red-light); color: var(--red); }
+.badge-gold { background: var(--gold-light); color: var(--gold-dark); }
+
+/* SEARCH */
+.search-wrap { padding: 0 16px 12px; }
+.search-input { width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; font-family: 'DM Sans', sans-serif; background: var(--surface); outline: none; transition: border 0.2s; }
+.search-input:focus { border-color: var(--gold); }
+
+/* CLIENT CARDS */
+.clients-list { padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
+.client-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 14px; }
+.client-card:hover { border-color: var(--gold); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+.avatar { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 16px; flex-shrink: 0; }
+.client-info { flex: 1; min-width: 0; }
+.client-name { font-size: 15px; font-weight: 500; }
+.client-date { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.client-amount { text-align: right; }
+.client-amount-num { font-size: 17px; font-weight: 600; font-family: 'DM Mono', monospace; }
+.client-count { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.overdue-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+
+/* FAB */
+.fab-area { position: fixed; bottom: 80px; right: 20px; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; z-index: 200; }
+.fab { border: none; cursor: pointer; border-radius: 28px; display: flex; align-items: center; gap: 8px; font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 15px; padding: 14px 22px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); transition: all 0.2s; }
+.fab-primary { background: var(--green); color: #fff; }
+.fab-secondary { background: var(--red); color: #fff; }
+.fab:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+
+/* BOTTOM NAV */
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+.nav-item { flex: 1; padding: 12px 8px 10px; text-align: center; cursor: pointer; border: none; background: none; font-family: 'DM Sans', sans-serif; color: var(--text-muted); font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: color 0.2s; }
+.nav-item.active { color: var(--gold-dark); }
+.nav-icon { font-size: 20px; }
+
+/* MODAL OVERLAY */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300; display: none; align-items: flex-end; }
+.modal-bg.open { display: flex; }
+.modal { background: var(--surface); border-radius: 24px 24px 0 0; width: 100%; max-height: 92vh; overflow-y: auto; padding: 24px 20px 40px; animation: slideUp 0.3s ease; }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+.modal-title { font-size: 20px; font-weight: 600; margin-bottom: 20px; }
+.close-btn { position: absolute; right: 20px; top: 20px; background: var(--bg); border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+/* FORMS */
+.form-group { margin-bottom: 16px; }
+.form-label { font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; display: block; }
+.form-input { width: 100%; padding: 13px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; font-family: 'DM Sans', sans-serif; background: var(--bg); outline: none; transition: border 0.2s; }
+.form-input:focus { border-color: var(--gold); background: #fff; }
+.form-select { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B6B6B' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px; }
+.toggle-group { display: flex; gap: 0; background: var(--bg); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 20px; }
+.toggle-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; font-family: 'DM Sans', sans-serif; color: var(--text-muted); background: none; transition: all 0.2s; }
+.toggle-btn.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+
+/* BTN PRIMARY */
+.btn-primary { width: 100%; padding: 16px; background: var(--green); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 16px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; margin-top: 8px; }
+.btn-primary:hover { background: #236040; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-outline { width: 100%; padding: 14px; background: none; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; font-family: 'DM Sans', sans-serif; cursor: pointer; margin-top: 8px; transition: all 0.2s; }
+
+/* DETAIL VIEW */
+.detail-view { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 250; overflow-y: auto; }
+.detail-view.open { display: block; }
+.detail-header { background: var(--gold); padding: 16px 20px 24px; }
+.detail-back { background: rgba(255,255,255,0.25); border: none; border-radius: 20px; padding: 6px 14px 6px 10px; color: #fff; font-size: 14px; font-family: 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; gap: 6px; margin-bottom: 16px; }
+.detail-name { font-size: 26px; font-weight: 600; color: #fff; }
+.detail-total { font-size: 38px; font-weight: 600; color: #fff; font-family: 'DM Mono', monospace; letter-spacing: -1px; margin-top: 4px; }
+.detail-body { padding: 16px; }
+.section-title { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin: 20px 0 10px; }
+.payment-item { background: var(--surface); border-radius: var(--radius-sm); border: 1px solid var(--border); padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+.payment-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.payment-info { flex: 1; min-width: 0; }
+.payment-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.payment-date { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.payment-amount { font-size: 16px; font-weight: 600; font-family: 'DM Mono', monospace; }
+.payment-item.paid { opacity: 0.55; }
+.paid-badge { background: var(--green-light); color: var(--green); font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+.overdue-badge { background: var(--red-light); color: var(--red); font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+
+/* REMINDER BTNS */
+.reminder-row { display: flex; gap: 10px; margin: 12px 0; }
+.reminder-btn { flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: 14px; font-family: 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: 500; transition: all 0.2s; }
+.reminder-btn:hover { border-color: var(--gold); }
+
+/* SETTINGS PANEL */
+.settings-panel { padding: 20px; }
+.settings-label { font-size: 13px; color: var(--text-muted); margin-bottom: 6px; display: block; font-weight: 500; }
+.settings-desc { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+.status-indicator { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 10px 14px; border-radius: var(--radius-sm); margin-top: 8px; }
+.status-ok { background: var(--green-light); color: var(--green); }
+.status-error { background: var(--red-light); color: var(--red); }
+.status-pending { background: var(--gold-light); color: var(--gold-dark); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+/* LOADING */
+.loading { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; }
+.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+/* NOTIFICATION */
+.notif { position: fixed; top: 80px; left: 16px; right: 16px; background: var(--text); color: #fff; padding: 14px 18px; border-radius: var(--radius-sm); z-index: 500; font-size: 14px; display: none; animation: fadeIn 0.3s ease; }
+.notif.show { display: block; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:none; } }
+
+/* LIQUIDADOS TAG */
+.liquidated-section { opacity: 0.6; }
+
+@media (min-width: 600px) {
+  body { max-width: 480px; margin: 0 auto; box-shadow: 0 0 40px rgba(0,0,0,0.1); }
+  .detail-view { max-width: 480px; left: 50%; transform: translateX(-50%); right: auto; width: 480px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NOTIFICATION -->
+<div class="notif" id="notif"></div>
+
+<!-- MAIN HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div>
+      <h1>Préstamos</h1>
+      <div class="header-sub" id="header-sub">Propietario</div>
+    </div>
+    <button class="icon-btn" onclick="openSettings()" title="Configuración">⚙</button>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('cobrar', this)">Por cobrar</button>
+  <button class="tab" onclick="switchTab('pagar', this)">Por pagar</button>
+  <button class="tab" onclick="switchTab('liquidados', this)">Liquidados</button>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="main-content">
+  <div class="loading" id="loading-state">
+    <div class="spinner"></div>
+    Conectando con Google Sheets...
+  </div>
+</div>
+
+<!-- FAB BUTTONS -->
+<div class="fab-area" id="fab-area">
+  <button class="fab fab-primary" onclick="openNewLoan()">
+    <span>+</span> Nuevo préstamo
+  </button>
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="nav-item active" onclick="navTo('deudas', this)">
+    <span class="nav-icon">💳</span>Deudas
+  </button>
+  <button class="nav-item" onclick="navTo('balance', this)">
+    <span class="nav-icon">📊</span>Balance
+  </button>
+  <button class="nav-item" onclick="navTo('clientes', this)">
+    <span class="nav-icon">👥</span>Clientes
+  </button>
+</div>
+
+<!-- ==================== DETAIL VIEW ==================== -->
+<div class="detail-view" id="detail-view">
+  <div class="detail-header">
+    <button class="detail-back" onclick="closeDetail()">← Volver</button>
+    <div class="detail-name" id="detail-name">Cliente</div>
+    <div class="detail-total" id="detail-total">$0</div>
+  </div>
+  <div class="detail-body">
+    <div class="reminder-row">
+      <button class="reminder-btn" id="wa-btn">
+        <span>📱</span> WhatsApp
+      </button>
+      <button class="reminder-btn" id="sms-btn">
+        <span>💬</span> SMS
+      </button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:4px;">
+      <button class="tab active" style="flex:1;padding:10px;font-size:14px;" onclick="detailTab('deudas', this)" id="dt-deudas">Deudas</button>
+      <button class="tab" style="flex:1;padding:10px;font-size:14px;" onclick="detailTab('abonos', this)" id="dt-abonos">Abonos</button>
+    </div>
+    <div id="detail-payments"></div>
+    <button class="btn-primary" onclick="openAbono()" id="abono-btn">+ Registrar abono</button>
+  </div>
+</div>
+
+<!-- ==================== MODAL: NUEVO PRÉSTAMO ==================== -->
+<div class="modal-bg" id="modal-loan">
+  <div class="modal" style="position:relative;">
+    <div class="modal-handle"></div>
+    <button class="close-btn" onclick="closeModal('modal-loan')">×</button>
+    <div class="modal-title">Nuevo préstamo</div>
+    <div class="toggle-group">
+      <button class="toggle-btn" onclick="setTipo('cobrar', this)">Por cobrar</button>
+      <button class="toggle-btn active" onclick="setTipo('pagar', this)">Por pagar</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cliente *</label>
+      <select class="form-input form-select" id="loan-client">
+        <option value="">Selecciona un cliente</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Concepto / Nombre del préstamo *</label>
+      <input class="form-input" id="loan-concept" type="text" placeholder="Ej: Préstamo personal">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Monto total *</label>
+      <input class="form-input" id="loan-amount" type="number" placeholder="0" min="0">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Interés (%)</label>
+      <input class="form-input" id="loan-interest" type="number" placeholder="0" min="0" value="0">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Número de pagos</label>
+      <input class="form-input" id="loan-payments" type="number" placeholder="1" min="1" value="1">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Frecuencia de pago</label>
+      <select class="form-input form-select" id="loan-freq">
+        <option value="7">Semanal</option>
+        <option value="14">Quincenal</option>
+        <option value="30" selected>Mensual</option>
+        <option value="1">Diario</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Fecha de primer pago</label>
+      <input class="form-input" id="loan-start" type="date">
+    </div>
+    <div style="background:var(--gold-light);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:16px;font-size:14px;color:var(--gold-dark);" id="loan-preview">
+      Pago por cuota: $0
+    </div>
+    <button class="btn-primary" onclick="saveLoan()" id="save-loan-btn">Crear préstamo</button>
+    <button class="btn-outline" onclick="closeModal('modal-loan')">Cancelar</button>
+  </div>
+</div>
+
+<!-- ==================== MODAL: ABONO ==================== -->
+<div class="modal-bg" id="modal-abono">
+  <div class="modal" style="position:relative;">
+    <div class="modal-handle"></div>
+    <button class="close-btn" onclick="closeModal('modal-abono')">×</button>
+    <div class="modal-title">Registrar abono</div>
+    <div class="form-group">
+      <label class="form-label">Pago a liquidar</label>
+      <select class="form-input form-select" id="abono-payment-select">
+        <option value="">Selecciona el pago</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Monto del abono *</label>
+      <input class="form-input" id="abono-amount" type="number" placeholder="0" min="0">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Fecha</label>
+      <input class="form-input" id="abono-date" type="date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notas (opcional)</label>
+      <input class="form-input" id="abono-notes" type="text" placeholder="Observaciones...">
+    </div>
+    <button class="btn-primary" onclick="saveAbono()" id="save-abono-btn">Guardar abono</button>
+    <button class="btn-outline" onclick="closeModal('modal-abono')">Cancelar</button>
+  </div>
+</div>
+
+<!-- ==================== MODAL: CLIENTE ==================== -->
+<div class="modal-bg" id="modal-client">
+  <div class="modal" style="position:relative;">
+    <div class="modal-handle"></div>
+    <button class="close-btn" onclick="closeModal('modal-client')">×</button>
+    <div class="modal-title" id="modal-client-title">Nuevo cliente</div>
+    <div class="form-group">
+      <label class="form-label">Nombre *</label>
+      <input class="form-input" id="client-name" type="text" placeholder="Nombre completo">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Teléfono</label>
+      <input class="form-input" id="client-phone" type="tel" placeholder="+52 55 0000 0000">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notas</label>
+      <input class="form-input" id="client-notes" type="text" placeholder="Dirección, referencia...">
+    </div>
+    <button class="btn-primary" onclick="saveClient()">Guardar cliente</button>
+    <button class="btn-outline" onclick="closeModal('modal-client')">Cancelar</button>
+  </div>
+</div>
+
+<!-- ==================== MODAL: SETTINGS ==================== -->
+<div class="modal-bg" id="modal-settings">
+  <div class="modal" style="position:relative;">
+    <div class="modal-handle"></div>
+    <button class="close-btn" onclick="closeModal('modal-settings')">×</button>
+    <div class="modal-title">Configuración</div>
+    <div class="settings-panel" style="padding:0;">
+      <div class="form-group">
+        <label class="form-label">URL de tu Google Apps Script *</label>
+        <input class="form-input" id="script-url" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+        <div class="settings-desc">Esta URL conecta la app con tu Google Sheet. Sigue las instrucciones abajo.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nombre del propietario</label>
+        <input class="form-input" id="owner-name" type="text" placeholder="Tu nombre">
+      </div>
+      <div id="conn-status" class="status-indicator status-pending">
+        <div class="dot"></div> Sin configurar
+      </div>
+      <button class="btn-primary" onclick="saveSettings()">Guardar y conectar</button>
+      <button class="btn-outline" onclick="testConnection()">Probar conexión</button>
+      <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+        <div style="font-size:13px;font-weight:600;margin-bottom:12px;">¿Cómo conectar con Google Sheets?</div>
+        <ol style="font-size:13px;color:var(--text-muted);line-height:1.8;padding-left:18px;">
+          <li>Abre tu Google Sheet</li>
+          <li>Ve a <strong>Extensiones → Apps Script</strong></li>
+          <li>Borra el código existente y pega el script que te comparto</li>
+          <li>Haz clic en <strong>Implementar → Nueva implementación</strong></li>
+          <li>Tipo: <strong>Aplicación web</strong>, acceso: <strong>Cualquiera</strong></li>
+          <li>Copia la URL y pégala aquí arriba</li>
+        </ol>
+        <button class="btn-outline" onclick="copyScript()" style="margin-top:12px;">Copiar Apps Script</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = ['#E8A838','#2D7A4F','#C0392B','#5B7FA6','#8B5E8B','#D4855A','#5A8A6A','#A65B8B'];
+
+let state = {
+  scriptUrl: localStorage.getItem('ps_url') || '',
+  ownerName: localStorage.getItem('ps_owner') || 'Propietario',
+  currentTab: 'cobrar',
+  currentClient: null,
+  currentClientData: null,
+  detailSubTab: 'deudas',
+  clients: [],
+  loans: [],
+  payments: [],
+  loading: false
+};
+
+// ==================== INIT ====================
+async function init() {
+  document.getElementById('header-sub').textContent = state.ownerName;
+  if (!state.scriptUrl) {
+    showEmpty('Configura tu Google Sheet para comenzar', '⚙️', true);
+    return;
+  }
+  await loadData();
+}
+
+async function loadData() {
+  showLoading();
+  try {
+    const r = await fetch(state.scriptUrl + '?action=getAll', {method:'GET'});
+    const d = await r.json();
+    state.clients = d.clients || [];
+    state.loans = d.loans || [];
+    state.payments = d.payments || [];
+    renderMain();
+  } catch(e) {
+    showEmpty('No se pudo conectar con Google Sheets.\nVerifica la URL en configuración.', '🔌');
+  }
+}
+
+// ==================== RENDER MAIN ====================
+function renderMain() {
+  const content = document.getElementById('main-content');
+  const tab = state.currentTab;
+  
+  const filteredLoans = state.loans.filter(l => {
+    if (tab === 'cobrar') return l.tipo === 'cobrar' && !isLiquidated(l);
+    if (tab === 'pagar') return l.tipo === 'pagar' && !isLiquidated(l);
+    if (tab === 'liquidados') return isLiquidated(l);
+    return false;
+  });
+
+  // Group by client
+  const byClient = {};
+  filteredLoans.forEach(loan => {
+    const key = loan.cliente_id;
+    if (!byClient[key]) byClient[key] = { client: getClient(key), loans: [] };
+    byClient[key].loans.push(loan);
+  });
+
+  const entries = Object.values(byClient);
+  const totalDebt = filteredLoans.reduce((s, l) => s + getRemainingDebt(l), 0);
+  const totalCount = filteredLoans.reduce((s, l) => s + getPendingCount(l), 0);
+  const clientCount = entries.length;
+
+  let html = `
+    <div class="summary">
+      <div class="summary-amount">${fmt(totalDebt)}</div>
+      <div class="summary-label">${clientCount} ${clientCount === 1 ? 'cliente' : 'clientes'}</div>
+      <div class="summary-badges">
+        <span class="badge badge-gold">${totalCount} pagos pendientes</span>
+        ${tab === 'cobrar' ? '<span class="badge badge-green">Por cobrar</span>' : ''}
+        ${tab === 'pagar' ? '<span class="badge badge-red">Por pagar</span>' : ''}
+        ${tab === 'liquidados' ? '<span class="badge badge-gold">Historial</span>' : ''}
+      </div>
+    </div>
+    <div class="search-wrap">
+      <input class="search-input" placeholder="Buscar cliente..." oninput="filterClients(this.value)" id="search-input">
+    </div>
+    <div class="clients-list" id="clients-list">
+  `;
+
+  if (entries.length === 0) {
+    html += `<div class="empty-state"><div class="empty-icon">${tab === 'liquidados' ? '✅' : '💰'}</div>
+      <div>${tab === 'liquidados' ? 'Sin préstamos liquidados aún' : 'Sin préstamos activos'}</div></div>`;
+  } else {
+    entries.forEach(({ client, loans }) => {
+      const name = client ? client.nombre : 'Sin nombre';
+      const total = loans.reduce((s, l) => s + getRemainingDebt(l), 0);
+      const count = loans.reduce((s, l) => s + getPendingCount(l), 0);
+      const nextDue = getNextDue(loans);
+      const overdue = isAnyOverdue(loans);
+      const initials = name.split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
+      const color = COLORS[Math.abs(hashCode(name)) % COLORS.length];
+      const clientId = client ? client.id : loans[0].cliente_id;
+      
+      html += `
+        <div class="client-card" onclick="openDetail('${clientId}')">
+          <div class="avatar" style="background:${color}22;color:${color}">${initials}</div>
+          <div class="client-info">
+            <div class="client-name">${name}</div>
+            <div class="client-date">${nextDue ? 'Vence: ' + nextDue : 'Sin vencimiento'}</div>
+          </div>
+          <div class="client-amount">
+            <div class="client-amount-num" style="color:${tab==='pagar'?'var(--red)':'var(--text)'}">${fmt(total)}</div>
+            <div class="client-count">${count} pago${count!==1?'s':''}</div>
+          </div>
+          ${overdue ? '<div class="overdue-dot" title="Pago vencido"></div>' : ''}
+        </div>`;
+    });
+  }
+
+  html += `</div>`;
+  if (tab !== 'liquidados') {
+    html += `<div style="height:160px"></div>`;
+    html += `<div style="padding:16px;"><button class="btn-outline" style="font-size:13px;" onclick="openClientModal()">+ Crear nuevo cliente</button></div>`;
+  }
+  content.innerHTML = html;
+}
+
+function filterClients(q) {
+  const cards = document.querySelectorAll('.client-card');
+  cards.forEach(c => {
+    const name = c.querySelector('.client-name').textContent.toLowerCase();
+    c.style.display = name.includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+
+// ==================== DETAIL ====================
+function openDetail(clientId) {
+  const client = getClient(clientId);
+  state.currentClient = clientId;
+  state.currentClientData = client;
+  state.detailSubTab = 'deudas';
+  
+  const name = client ? client.nombre : 'Sin nombre';
+  const loans = state.loans.filter(l => l.cliente_id == clientId);
+  const total = loans.filter(l => !isLiquidated(l)).reduce((s,l) => s + getRemainingDebt(l), 0);
+
+  document.getElementById('detail-name').textContent = name;
+  document.getElementById('detail-total').textContent = fmt(total);
+  
+  const phone = client ? (client.telefono || '') : '';
+  const msg = encodeURIComponent(`Hola ${name}, te recuerdo que tienes un saldo pendiente de ${fmt(total)}. Por favor contáctame para coordinar el pago. ¡Gracias!`);
+  
+  document.getElementById('wa-btn').onclick = () => {
+    const num = phone.replace(/\D/g,'');
+    window.open(`https://wa.me/${num}?text=${msg}`, '_blank');
+  };
+  document.getElementById('sms-btn').onclick = () => {
+    window.open(`sms:${phone}?body=${msg}`, '_blank');
+  };
+
+  renderDetailPayments(clientId, 'deudas');
+  document.getElementById('detail-view').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function renderDetailPayments(clientId, subTab) {
+  const loans = state.loans.filter(l => l.cliente_id == clientId);
+  let html = '';
+
+  if (subTab === 'deudas') {
+    const pending = [];
+    loans.forEach(loan => {
+      const paysForLoan = state.payments.filter(p => p.prestamo_id == loan.id && p.estado === 'pagado');
+      const paidCount = paysForLoan.length;
+      const schedules = generateSchedule(loan);
+      schedules.forEach((sch, i) => {
+        const isPaid = i < paidCount;
+        if (!isPaid) pending.push({ ...sch, loan, index: i+1, isPaid: false });
+      });
+    });
+    pending.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+    if (pending.length === 0) {
+      html = `<div class="empty-state" style="padding:30px 0;"><div class="empty-icon">✅</div><div>Sin pagos pendientes</div></div>`;
+    } else {
+      pending.forEach(p => {
+        const overdue = new Date(p.date) < new Date() && !p.isPaid;
+        html += `
+          <div class="payment-item">
+            <div class="payment-icon" style="background:${overdue?'var(--red-light)':'var(--gold-light)'}">
+              ${overdue ? '⚠' : '📋'}
+            </div>
+            <div class="payment-info">
+              <div class="payment-name">${p.loan.concepto} - Pago ${p.index}</div>
+              <div class="payment-date">${fmtDate(p.date)}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="payment-amount">${fmt(p.amount)}</div>
+              ${overdue ? '<span class="overdue-badge">Vencido</span>' : ''}
+            </div>
+          </div>`;
+      });
+    }
+  } else {
+    const abonos = state.payments.filter(p => p.cliente_id == clientId || 
+      loans.some(l => l.id == p.prestamo_id));
+    
+    if (abonos.length === 0) {
+      html = `<div class="empty-state" style="padding:30px 0;"><div class="empty-icon">💸</div><div>Sin abonos registrados</div></div>`;
+    } else {
+      abonos.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+      abonos.forEach(a => {
+        html += `
+          <div class="payment-item paid">
+            <div class="payment-icon" style="background:var(--green-light)">✓</div>
+            <div class="payment-info">
+              <div class="payment-name">${a.notas || 'Abono registrado'}</div>
+              <div class="payment-date">${fmtDate(a.fecha)}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="payment-amount" style="color:var(--green)">${fmt(a.monto)}</div>
+              <span class="paid-badge">Pagado</span>
+            </div>
+          </div>`;
+      });
+    }
+  }
+  document.getElementById('detail-payments').innerHTML = html;
+}
+
+function detailTab(tab, el) {
+  state.detailSubTab = tab;
+  document.querySelectorAll('#detail-view .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderDetailPayments(state.currentClient, tab);
+  document.getElementById('abono-btn').style.display = tab === 'deudas' ? '' : 'none';
+}
+
+function closeDetail() {
+  document.getElementById('detail-view').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ==================== MODALS ====================
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function openNewLoan() {
+  populateClientSelect('loan-client');
+  const today = new Date();
+  today.setDate(today.getDate() + 30);
+  document.getElementById('loan-start').value = today.toISOString().split('T')[0];
+  document.getElementById('loan-amount').value = '';
+  document.getElementById('loan-interest').value = '0';
+  document.getElementById('loan-payments').value = '1';
+  updateLoanPreview();
+  openModal('modal-loan');
+}
+
+function openAbono() {
+  const loans = state.loans.filter(l => l.cliente_id == state.currentClient && !isLiquidated(l));
+  const sel = document.getElementById('abono-payment-select');
+  sel.innerHTML = '<option value="">Selecciona el pago</option>';
+  loans.forEach(l => {
+    const pending = getPendingSchedules(l);
+    pending.forEach((p, i) => {
+      sel.innerHTML += `<option value="${l.id}__${i}">${l.concepto} - Pago ${p.index} (${fmt(p.amount)})</option>`;
+    });
+  });
+  document.getElementById('abono-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('abono-amount').value = '';
+  document.getElementById('abono-notes').value = '';
+  openModal('modal-abono');
+}
+
+function openClientModal(client) {
+  document.getElementById('modal-client-title').textContent = client ? 'Editar cliente' : 'Nuevo cliente';
+  document.getElementById('client-name').value = client ? client.nombre : '';
+  document.getElementById('client-phone').value = client ? (client.telefono||'') : '';
+  document.getElementById('client-notes').value = client ? (client.notas||'') : '';
+  openModal('modal-client');
+}
+
+function openSettings() {
+  document.getElementById('script-url').value = state.scriptUrl;
+  document.getElementById('owner-name').value = state.ownerName;
+  openModal('modal-settings');
+}
+
+// ==================== SAVE ACTIONS ====================
+let loanTipo = 'cobrar';
+function setTipo(tipo, el) {
+  loanTipo = tipo;
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function updateLoanPreview() {
+  const amount = parseFloat(document.getElementById('loan-amount').value) || 0;
+  const interest = parseFloat(document.getElementById('loan-interest').value) || 0;
+  const nPay = parseInt(document.getElementById('loan-payments').value) || 1;
+  const total = amount * (1 + interest/100);
+  const perPay = total / nPay;
+  document.getElementById('loan-preview').textContent = 
+    `Total: ${fmt(total)} · Pago por cuota: ${fmt(perPay)}`;
+}
+document.getElementById('loan-amount').addEventListener('input', updateLoanPreview);
+document.getElementById('loan-interest').addEventListener('input', updateLoanPreview);
+document.getElementById('loan-payments').addEventListener('input', updateLoanPreview);
+
+async function saveLoan() {
+  const clientId = document.getElementById('loan-client').value;
+  const concept = document.getElementById('loan-concept').value.trim();
+  const amount = parseFloat(document.getElementById('loan-amount').value);
+  const interest = parseFloat(document.getElementById('loan-interest').value) || 0;
+  const nPay = parseInt(document.getElementById('loan-payments').value) || 1;
+  const freq = parseInt(document.getElementById('loan-freq').value);
+  const start = document.getElementById('loan-start').value;
+
+  if (!clientId || !concept || !amount) { showNotif('Completa los campos obligatorios'); return; }
+
+  const btn = document.getElementById('save-loan-btn');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+
+  const loan = {
+    action: 'addLoan',
+    cliente_id: clientId,
+    concepto: concept,
+    monto: amount,
+    interes: interest,
+    num_pagos: nPay,
+    frecuencia_dias: freq,
+    fecha_inicio: start,
+    tipo: loanTipo
+  };
+
+  try {
+    await postData(loan);
+    showNotif('✓ Préstamo creado');
+    closeModal('modal-loan');
+    await loadData();
+  } catch(e) { showNotif('Error al guardar. Verifica la conexión'); }
+  btn.disabled = false; btn.textContent = 'Crear préstamo';
+}
+
+async function saveAbono() {
+  const sel = document.getElementById('abono-payment-select').value;
+  const amount = parseFloat(document.getElementById('abono-amount').value);
+  const date = document.getElementById('abono-date').value;
+  const notes = document.getElementById('abono-notes').value;
+
+  if (!amount || !date) { showNotif('Ingresa monto y fecha'); return; }
+
+  const [loanId, idx] = sel.split('__');
+  const btn = document.getElementById('save-abono-btn');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+
+  try {
+    await postData({
+      action: 'addPayment',
+      prestamo_id: loanId,
+      cliente_id: state.currentClient,
+      monto: amount,
+      fecha: date,
+      notas: notes,
+      pago_index: idx,
+      estado: 'pagado'
+    });
+    showNotif('✓ Abono registrado');
+    closeModal('modal-abono');
+    await loadData();
+    openDetail(state.currentClient);
+  } catch(e) { showNotif('Error al guardar'); }
+  btn.disabled = false; btn.textContent = 'Guardar abono';
+}
+
+async function saveClient() {
+  const name = document.getElementById('client-name').value.trim();
+  const phone = document.getElementById('client-phone').value.trim();
+  const notes = document.getElementById('client-notes').value.trim();
+  if (!name) { showNotif('Ingresa un nombre'); return; }
+  try {
+    await postData({ action: 'addClient', nombre: name, telefono: phone, notas: notes });
+    showNotif('✓ Cliente creado');
+    closeModal('modal-client');
+    await loadData();
+  } catch(e) { showNotif('Error al guardar'); }
+}
+
+async function saveSettings() {
+  const url = document.getElementById('script-url').value.trim();
+  const owner = document.getElementById('owner-name').value.trim();
+  state.scriptUrl = url;
+  state.ownerName = owner || 'Propietario';
+  localStorage.setItem('ps_url', url);
+  localStorage.setItem('ps_owner', state.ownerName);
+  document.getElementById('header-sub').textContent = state.ownerName;
+  closeModal('modal-settings');
+  await loadData();
+}
+
+async function testConnection() {
+  const url = document.getElementById('script-url').value.trim();
+  if (!url) { showNotif('Ingresa la URL primero'); return; }
+  const st = document.getElementById('conn-status');
+  st.className = 'status-indicator status-pending';
+  st.innerHTML = '<div class="dot"></div> Conectando...';
+  try {
+    const r = await fetch(url + '?action=ping');
+    const d = await r.json();
+    if (d.ok) {
+      st.className = 'status-indicator status-ok';
+      st.innerHTML = '<div class="dot"></div> Conectado correctamente';
+    } else throw new Error();
+  } catch {
+    st.className = 'status-indicator status-error';
+    st.innerHTML = '<div class="dot"></div> Sin conexión — revisa la URL';
+  }
+}
+
+// ==================== HELPERS ====================
+async function postData(data) {
+  const r = await fetch(state.scriptUrl, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+  return await r.json();
+}
+
+function getClient(id) {
+  return state.clients.find(c => c.id == id);
+}
+
+function generateSchedule(loan) {
+  const schedule = [];
+  const total = loan.monto * (1 + (loan.interes||0)/100);
+  const perPay = total / (loan.num_pagos || 1);
+  let date = new Date(loan.fecha_inicio || new Date());
+  for (let i = 0; i < (loan.num_pagos||1); i++) {
+    schedule.push({ date: date.toISOString().split('T')[0], amount: perPay, index: i+1 });
+    date = new Date(date);
+    date.setDate(date.getDate() + (loan.frecuencia_dias || 30));
+  }
+  return schedule;
+}
+
+function getPendingSchedules(loan) {
+  const paidCount = state.payments.filter(p => p.prestamo_id == loan.id && p.estado === 'pagado').length;
+  return generateSchedule(loan).slice(paidCount).map((s, i) => ({ ...s, index: paidCount + i + 1 }));
+}
+
+function getRemainingDebt(loan) {
+  const schedule = generateSchedule(loan);
+  const paidCount = state.payments.filter(p => p.prestamo_id == loan.id && p.estado === 'pagado').length;
+  return schedule.slice(paidCount).reduce((s, p) => s + p.amount, 0);
+}
+
+function getPendingCount(loan) {
+  const total = loan.num_pagos || 1;
+  const paid = state.payments.filter(p => p.prestamo_id == loan.id && p.estado === 'pagado').length;
+  return Math.max(0, total - paid);
+}
+
+function isLiquidated(loan) {
+  return getPendingCount(loan) === 0;
+}
+
+function isAnyOverdue(loans) {
+  const now = new Date();
+  return loans.some(loan => {
+    const pending = getPendingSchedules(loan);
+    return pending.some(p => new Date(p.date) < now);
+  });
+}
+
+function getNextDue(loans) {
+  const dates = [];
+  loans.forEach(loan => {
+    const pending = getPendingSchedules(loan);
+    if (pending.length) dates.push(pending[0].date);
+  });
+  if (!dates.length) return null;
+  dates.sort();
+  return fmtDate(dates[0]);
+}
+
+function fmt(n) {
+  return '$' + Math.round(n || 0).toLocaleString('es-MX');
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  const date = new Date(d + 'T12:00:00');
+  return date.toLocaleDateString('es-MX', { day:'numeric', month:'short', year:'2-digit' });
+}
+
+function hashCode(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+  return h;
+}
+
+function showLoading() {
+  document.getElementById('main-content').innerHTML = `
+    <div class="loading"><div class="spinner"></div>Cargando datos...</div>`;
+}
+
+function showEmpty(msg, icon = '💰', showSetup = false) {
+  document.getElementById('main-content').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">${icon}</div>
+      <div style="white-space:pre-line">${msg}</div>
+      ${showSetup ? '<button class="btn-primary" style="margin:16px auto 0;width:auto;padding:12px 24px;" onclick="openSettings()">⚙ Configurar</button>' : ''}
+    </div>`;
+}
+
+function showNotif(msg) {
+  const n = document.getElementById('notif');
+  n.textContent = msg;
+  n.classList.add('show');
+  setTimeout(() => n.classList.remove('show'), 3000);
+}
+
+function switchTab(tab, el) {
+  state.currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderMain();
+}
+
+function navTo(section, el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  if (section === 'clientes') openClientModal();
+}
+
+function populateClientSelect(id) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = '<option value="">Selecciona un cliente</option>';
+  state.clients.forEach(c => {
+    sel.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+  });
+}
+
+// ==================== COPY APPS SCRIPT ====================
+function copyScript() {
+  const script = `// PrestApp - Google Apps Script
+// Pega este código en tu Apps Script y despliega como aplicación web
+
+const SHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
+const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+function doGet(e) {
+  const action = e.parameter.action;
+  if (action === 'ping') return json({ok: true});
+  if (action === 'getAll') return json(getAllData());
+  return json({error: 'Acción no válida'});
+}
+
+function doPost(e) {
+  const data = JSON.parse(e.postData.contents);
+  const action = data.action;
+  if (action === 'addClient') return json(addClient(data));
+  if (action === 'addLoan') return json(addLoan(data));
+  if (action === 'addPayment') return json(addPayment(data));
+  return json({error: 'Acción no válida'});
+}
+
+function getAllData() {
+  return {
+    clients: getSheet('Clientes').getDataRange().getValues().slice(1).map((r,i) => ({
+      id: r[0], nombre: r[1], telefono: r[2], notas: r[3]
+    })).filter(c => c.id),
+    loans: getSheet('Prestamos').getDataRange().getValues().slice(1).map(r => ({
+      id: r[0], cliente_id: r[1], concepto: r[2], monto: r[3], interes: r[4],
+      num_pagos: r[5], frecuencia_dias: r[6], fecha_inicio: r[7], tipo: r[8]
+    })).filter(l => l.id),
+    payments: getSheet('Abonos').getDataRange().getValues().slice(1).map(r => ({
+      id: r[0], prestamo_id: r[1], cliente_id: r[2], monto: r[3],
+      fecha: r[4], notas: r[5], estado: r[6], pago_index: r[7]
+    })).filter(p => p.id)
+  };
+}
+
+function addClient(d) {
+  const sh = getSheet('Clientes');
+  const id = 'c' + Date.now();
+  sh.appendRow([id, d.nombre, d.telefono||'', d.notas||'']);
+  return {ok: true, id};
+}
+
+function addLoan(d) {
+  const sh = getSheet('Prestamos');
+  const id = 'l' + Date.now();
+  sh.appendRow([id, d.cliente_id, d.concepto, d.monto, d.interes||0,
+    d.num_pagos||1, d.frecuencia_dias||30, d.fecha_inicio, d.tipo]);
+  return {ok: true, id};
+}
+
+function addPayment(d) {
+  const sh = getSheet('Abonos');
+  const id = 'a' + Date.now();
+  sh.appendRow([id, d.prestamo_id, d.cliente_id, d.monto,
+    d.fecha, d.notas||'', d.estado||'pagado', d.pago_index||0]);
+  return {ok: true, id};
+}
+
+function getSheet(name) {
+  let sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    if (name === 'Clientes') sh.appendRow(['id','nombre','telefono','notas']);
+    if (name === 'Prestamos') sh.appendRow(['id','cliente_id','concepto','monto','interes','num_pagos','frecuencia_dias','fecha_inicio','tipo']);
+    if (name === 'Abonos') sh.appendRow(['id','prestamo_id','cliente_id','monto','fecha','notas','estado','pago_index']);
+  }
+  return sh;
+}
+
+function json(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+  
+  navigator.clipboard.writeText(script).then(() => showNotif('✓ Script copiado al portapapeles'));
+}
+
+// ==================== START ====================
+init();
+</script>
+</body>
+</html>
