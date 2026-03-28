@@ -104,6 +104,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 .btn-p:active{background:var(--blue-mid);}
 .btn-o{width:100%;padding:13px;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--rs);font-size:14px;font-family:inherit;cursor:pointer;margin-top:8px;}
 .btn-g{width:100%;padding:13px;background:var(--green-light);color:var(--green);border:none;border-radius:var(--rs);font-size:14px;font-family:inherit;cursor:pointer;margin-top:8px;font-weight:600;}
+.btn-d{width:100%;padding:13px;background:none;color:var(--red);border:1px solid var(--red-light);border-radius:var(--rs);font-size:14px;font-family:inherit;cursor:pointer;margin-top:8px;font-weight:600;}
 
 /* DETAIL */
 .dv{display:none;position:fixed;inset:0;background:var(--bg);z-index:250;overflow-y:auto;flex-direction:column;}
@@ -183,6 +184,15 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 .section-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:16px 0 8px;}
 .ep-info{background:var(--blue-pale);border-radius:var(--rs);padding:10px 13px;margin-bottom:16px;font-size:13px;color:var(--blue);font-weight:600;line-height:1.6;}
 .info-box{background:var(--blue-pale);border-radius:var(--rs);padding:12px 14px;font-size:13px;color:var(--blue);line-height:1.8;margin-bottom:12px;}
+
+/* ALERT MODAL */
+.alert-modal{background:var(--surface);border-radius:var(--r);padding:18px;border:1px solid var(--border);margin-bottom:10px;}
+.alert-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.alert-row:last-child{border-bottom:none;}
+.alert-active{border-left:3px solid var(--blue);background:var(--blue-pale);}
+.pbd{background:var(--orange-light);color:var(--orange);}
+.prop-row-proration{background:var(--orange-light);border-radius:6px;padding:6px 10px;margin:4px 0;}
+
 @media(min-width:480px){
   body{max-width:480px;margin:0 auto;}
   .dv,.mbg,.bnav,.setup-screen,.prop-view{max-width:480px;left:50%;transform:translateX(-50%);right:auto;width:480px;}
@@ -552,6 +562,8 @@ function amountsForLoan(loan){
 // INIT
 // ============================================================
 function init(){
+  loadAlerts();
+  checkScheduledNotifs();
   if(!S.owner){document.getElementById('setup-screen').classList.add('open');return;}
   document.getElementById('hdr-sub').textContent=S.owner;
   // Restore Drive Client ID
@@ -696,6 +708,7 @@ function renderDPay(){
           +'<button class="pi-btn pbg" onclick="openAbono(\''+loan.id+'\','+i+')">+ Abono</button>'
           +'<button class="pi-btn pbw" onclick="sendWA(\''+loan.id+'\','+i+')">📱 WA</button>'
           +'<button class="pi-btn pbr" onclick="deletePay(\''+loan.id+'\','+i+')">🗑 Eliminar</button>'
+          +'<button class="pi-btn pbd" onclick="openAlertModal(\''+loan.id+'\','+i+',\''+p.date+'\')">'+(hasAlert(loan.id,i)?'🔔 Alerta ✓':'🔔 Alerta')+'</button>'
           +'</div></div>';
       });
     }
@@ -716,7 +729,9 @@ function renderDPay(){
         html+='<div class="'+piCls+'"><div class="pi-top"><div class="pi-ico" style="background:'+icoBg+'">'+icoTxt+'</div>'
           +'<div class="pi-info"><div class="pi-name">'+(a.notas||'Abono')+(loan?' · '+loan.concepto:'')+'</div>'
           +'<div class="pi-date">'+fmtDate(a.fecha)+'</div>'+pillHtml+'</div>'
-          +'<div class="'+amtCls+'">'+fmt(a.monto)+'</div></div></div>';
+          +'<div class="'+amtCls+'">'+fmt(a.monto)+'</div></div>'
+          +'<div class="pi-actions"><button class="pi-btn pbr" onclick="openDelHist(\''+a.id+'\',\''+a.estado+'\')" >🗑 Borrar</button></div>'
+          +'</div>';
       });
     }
   }
@@ -1050,12 +1065,23 @@ function saveClient(){
   var phone=document.getElementById('c-phone').value.trim();
   var notes=document.getElementById('c-notes').value.trim();
   if(!name){showNotif('Ingresa un nombre');return;}
+  var newId='c'+Date.now();
   var clients=DB.clients;
-  clients.push({id:'c'+Date.now(),nombre:name,telefono:phone,notas:notes});
+  clients.push({id:newId,nombre:name,telefono:phone,notas:notes});
   DB.clients=clients;
   showNotif('✓ Cliente creado');
   closeModal('m-client');closeModal('m-clist');
-  renderMain();
+  if(S._fromPropuesta){
+    S._fromPropuesta=false;
+    _openLoanFromProp();
+    // Select the newly created client
+    setTimeout(function(){
+      var sel=document.getElementById('l-client');
+      if(sel) sel.value=newId;
+    },100);
+  }else{
+    renderMain();
+  }
 }
 function openClientList(){
   var clients=DB.clients;var html='';
@@ -1102,11 +1128,16 @@ function calcProp(){
   document.getElementById('pr-total').textContent=fmt(res.total);
 
   // Show Capital, Interés (merged with proration), Total — NO percentages, NO proration label
-  var interestTotal=Math.round((res.interest+res.proration)*100)/100;
+  var interestBase=Math.round(res.interest*100)/100;
   var rows='<div class="prop-row"><span class="prop-row-lbl">Capital</span><span class="prop-row-val">'+fmt(res.base)+'</span></div>';
   if(freq==='daily'){rows+='<div class="prop-row"><span class="prop-row-lbl">Interés</span><span class="prop-row-val">'+fmt(res.interest)+'</span></div>';}
-  else{rows+='<div class="prop-row"><span class="prop-row-lbl">Interés</span><span class="prop-row-val">'+fmt(interestTotal)+'</span></div>';}
-  rows+='<div class="prop-row" style="font-size:14px;font-weight:700;border-top:2px solid var(--border);"><span class="prop-row-lbl">Pago</span><span class="prop-row-val">'+fmt(res.total/n)+'</span></div>';
+  else{
+    rows+='<div class="prop-row"><span class="prop-row-lbl">Interés</span><span class="prop-row-val">'+fmt(interestBase)+'</span></div>';
+    if(res.proration>0.009){
+      rows+='<div class="prop-row prop-row-proration"><span class="prop-row-lbl" style="color:var(--orange)">⚡ Prorrateo '+res.extraDays+' días extra</span><span class="prop-row-val" style="color:var(--orange)">+'+fmt(res.proration)+'</span></div>';
+    }
+  }
+  rows+='<div class="prop-row" style="font-size:14px;font-weight:700;border-top:2px solid var(--border);"><span class="prop-row-lbl">Pago por cuota</span><span class="prop-row-val">'+fmt(res.total/n)+'</span></div>';
   document.getElementById('pr-rows').innerHTML=rows;
 
   var dhtml='';
@@ -1197,21 +1228,35 @@ function usarPropuesta(){
   var freq=document.getElementById('pr-freq').value;
   var fd=document.getElementById('pr-firstdate').value;
   if(!amt||!fd){showNotif('Completa la propuesta primero');return;}
+  // Save propuesta state for later restore
+  S._propState={amt:amt,pct:pct,n:n,freq:freq,fd:fd};
   closeProp();
+  _openLoanFromProp();
+}
+function _openLoanFromProp(){
+  var ps=S._propState;if(!ps)return;
   var clients=DB.clients;
   var sel=document.getElementById('l-client');
   sel.innerHTML='<option value="">Selecciona cliente</option>';
   clients.forEach(function(c){sel.innerHTML+='<option value="'+c.id+'">'+c.nombre+'</option>';});
+  sel.innerHTML+='<option value="__new__">➕ Crear nuevo cliente…</option>';
   // Pre-select client if chosen in propuesta
   var prCid=document.getElementById('pr-client').value;
   if(prCid)sel.value=prCid;
-  document.getElementById('l-amount').value=amt;
-  document.getElementById('l-interest').value=pct;
-  document.getElementById('l-npay').value=n;
-  document.getElementById('l-freq').value=freq;
-  document.getElementById('l-firstdate').value=fd;
+  sel.onchange=function(){
+    if(sel.value==='__new__'){
+      sel.value='';
+      S._fromPropuesta=true;
+      openClientModal();
+    }
+  };
+  document.getElementById('l-amount').value=ps.amt;
+  document.getElementById('l-interest').value=ps.pct;
+  document.getElementById('l-npay').value=ps.n;
+  document.getElementById('l-freq').value=ps.freq;
+  document.getElementById('l-firstdate').value=ps.fd;
   document.getElementById('l-concept').value='Préstamo';
-  document.getElementById('l-pct-wrap').style.display=freq==='daily'?'none':'';
+  document.getElementById('l-pct-wrap').style.display=ps.freq==='daily'?'none':'';
   calcLoanPreview();
   openModal('m-loan');
 }
@@ -1355,7 +1400,234 @@ function hashStr(s){var h=0;for(var i=0;i<s.length;i++)h=Math.imul(31,h)+s.charC
 function showNotif(msg,dur){var n=document.getElementById('notif');n.textContent=msg;n.className='notif show';setTimeout(function(){n.classList.remove('show');},dur||3200);}
 function showNotifSuccess(msg,dur){var n=document.getElementById('notif');n.textContent=msg;n.className='notif show success';setTimeout(function(){n.classList.remove('show');},dur||3000);}
 
+
+// ============================================================
+// ALERTS SYSTEM
+// ============================================================
+var ALERTS = {};
+function loadAlerts(){try{ALERTS=JSON.parse(localStorage.getItem('pa_alerts')||'{}');}catch(e){ALERTS={};}}
+function saveAlerts(){localStorage.setItem('pa_alerts',JSON.stringify(ALERTS));}
+function alertKey(lid,idx){return lid+'__'+idx;}
+function hasAlert(lid,idx){return !!ALERTS[alertKey(lid,idx)];}
+
+function openAlertModal(lid,idx,date){
+  var loan=DB.loans.find(function(l){return String(l.id)===String(lid);});
+  var sched=getSched(loan);
+  var p=sched[idx];
+  var cl=DB.clients.find(function(c){return String(c.id)===String(loan.cliente_id);});
+  document.getElementById('al-lid').value=lid;
+  document.getElementById('al-idx').value=idx;
+  document.getElementById('al-date').value=p.date;
+  document.getElementById('al-header').innerHTML='👤 <strong>'+(cl?cl.nombre:'?')+'</strong> · Pago '+(idx+1)+' · Vence '+fmtDate(p.date);
+  var existing=ALERTS[alertKey(lid,idx)];
+  if(existing){
+    document.getElementById('al-when').value=existing.when||'dayBefore';
+    document.getElementById('al-how').value=existing.how||'notif';
+    document.getElementById('al-delete-btn').style.display='';
+  }else{
+    document.getElementById('al-when').value='dayBefore';
+    document.getElementById('al-how').value='notif';
+    document.getElementById('al-delete-btn').style.display='none';
+  }
+  openModal('m-alert');
+}
+
+function saveAlert(){
+  var lid=document.getElementById('al-lid').value;
+  var idx=parseInt(document.getElementById('al-idx').value);
+  var date=document.getElementById('al-date').value;
+  var when=document.getElementById('al-when').value;
+  var how=document.getElementById('al-how').value;
+  var key=alertKey(lid,idx);
+  ALERTS[key]={lid:lid,idx:idx,date:date,when:when,how:how,createdAt:todayStr()};
+  saveAlerts();
+  // Schedule browser notification if requested
+  if(how==='notif'||how==='both'){
+    requestNotifPermission(function(){
+      scheduleNotif(lid,idx,date,when);
+    });
+  }
+  showNotif('🔔 Alerta guardada para '+fmtDate(date));
+  closeModal('m-alert');
+  renderDPay();
+}
+
+function deleteAlert(){
+  var lid=document.getElementById('al-lid').value;
+  var idx=parseInt(document.getElementById('al-idx').value);
+  delete ALERTS[alertKey(lid,idx)];
+  saveAlerts();
+  showNotif('Alerta eliminada');
+  closeModal('m-alert');
+  renderDPay();
+}
+
+function requestNotifPermission(cb){
+  if(!('Notification' in window)){showNotif('Este navegador no soporta notificaciones');return;}
+  if(Notification.permission==='granted'){cb();return;}
+  Notification.requestPermission().then(function(p){if(p==='granted')cb();else showNotif('Permiso de notificaciones denegado');});
+}
+
+function scheduleNotif(lid,idx,dateStr,when){
+  // Calculate trigger time
+  var payDate=parseDate(dateStr);
+  var triggerDate=new Date(payDate);
+  if(when==='dayBefore') triggerDate.setDate(triggerDate.getDate()-1);
+  triggerDate.setHours(6,0,0,0);
+  var now=new Date();
+  var delay=triggerDate-now;
+  if(delay<=0){showNotif('La fecha de alerta ya pasó');return;}
+  // Store scheduled notif in localStorage (re-checked on app open)
+  var notifs=JSON.parse(localStorage.getItem('pa_schnotifs')||'[]');
+  notifs=notifs.filter(function(n){return n.key!==alertKey(lid,idx);});
+  notifs.push({key:alertKey(lid,idx),lid:lid,idx:idx,triggerTime:triggerDate.getTime(),dateStr:dateStr,fired:false});
+  localStorage.setItem('pa_schnotifs',JSON.stringify(notifs));
+}
+
+function checkScheduledNotifs(){
+  var notifs=JSON.parse(localStorage.getItem('pa_schnotifs')||'[]');
+  var now=Date.now();
+  var changed=false;
+  notifs.forEach(function(n){
+    if(!n.fired&&now>=n.triggerTime){
+      n.fired=true;changed=true;
+      var loan=DB.loans.find(function(l){return String(l.id)===String(n.lid);});
+      var sched=loan?getSched(loan):[];
+      var p=sched[n.idx];
+      var cl=loan?DB.clients.find(function(c){return String(c.id)===String(loan.cliente_id);}):null;
+      var title='PrestApp 🔔';
+      var body=(cl?cl.nombre:'Cliente')+' — Pago '+(n.idx+1)+' vence el '+fmtDate(n.dateStr)+(p?' ('+fmt(p.amount)+')':'');
+      // Show browser notification
+      if(Notification.permission==='granted'){
+        new Notification(title,{body:body,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💼</text></svg>'});
+      }
+      // Also show in-app notif
+      showNotif('🔔 '+body,6000);
+      // If alert says send WA to self (dayBefore)
+      var alert=ALERTS[n.key];
+      if(alert&&(alert.how==='wa'||alert.how==='both')&&alert.when==='dayBefore'){
+        var myPhone=S.myphone.replace(/\D/g,'');
+        if(myPhone.length===10) myPhone='52'+myPhone;
+        if(myPhone.length>=12){
+          var msg='PrestApp recordatorio: '+body+'. Entra a la app para enviar la alerta al cliente.';
+          // Can't auto-open WA silently, so show a button
+          setTimeout(function(){
+            if(confirm('🔔 '+body+'\n\n¿Abrir WhatsApp para recordártelo?')){
+              window.open('https://wa.me/'+myPhone+'?text='+encodeURIComponent(msg),'_blank');
+            }
+          },500);
+        }
+      }
+    }
+  });
+  if(changed) localStorage.setItem('pa_schnotifs',JSON.stringify(notifs));
+}
+
+// ============================================================
+// HISTORIAL DELETE / RESTORE
+// ============================================================
+function openDelHist(pid, estado){
+  document.getElementById('dh-pid').value=pid;
+  var payments=DB.payments;
+  var pay=payments.find(function(p){return String(p.id)===String(pid);});
+  if(!pay){showNotif('Registro no encontrado');return;}
+  var loan=DB.loans.find(function(l){return String(l.id)===String(pay.prestamo_id);});
+  document.getElementById('dh-info').innerHTML='Registro: '+(pay.notas||'Abono')+(loan?' · '+loan.concepto:'')+'<br>Fecha: '+fmtDate(pay.fecha)+' · Monto: '+fmt(pay.monto);
+  openModal('m-del-hist');
+}
+
+function restoreHistEntry(){
+  var pid=document.getElementById('dh-pid').value;
+  var payments=DB.payments;
+  var pay=payments.find(function(p){return String(p.id)===String(pid);});
+  if(!pay){showNotif('No encontrado');return;}
+  var lid=pay.prestamo_id;
+  var idx=parseInt(pay.pago_index);
+  // Remove payment record
+  DB.payments=payments.filter(function(p){return String(p.id)!==String(pid);});
+  // Recalculate status from remaining payments
+  var remaining=getAbonado(lid,idx);
+  var loan=DB.loans.find(function(l){return String(l.id)===String(lid);});
+  var amounts=amountsForLoan(loan);
+  var baseAmt=amounts[idx]||0;
+  var newStatus=remaining>=baseAmt-0.009&&baseAmt>0?'pagado':remaining>0?'parcial':'pendiente';
+  // Clear override status so it recalculates
+  var ov=DB.overrides;
+  if(ov[lid]&&ov[lid][idx]){
+    delete ov[lid][idx].status;
+    delete ov[lid][idx].eliminado;
+    DB.overrides=ov;
+  }
+  autoBackup();
+  showNotif('↩ Pago restaurado a '+newStatus);
+  closeModal('m-del-hist');
+  refreshDetailHeader();
+  renderDPay();
+}
+
+function permanentDeleteHist(){
+  var pid=document.getElementById('dh-pid').value;
+  if(!confirm('¿Eliminar permanentemente? Esta acción no se puede deshacer.'))return;
+  var payments=DB.payments;
+  DB.payments=payments.filter(function(p){return String(p.id)!==String(pid);});
+  autoBackup();
+  showNotif('🗑 Registro eliminado permanentemente');
+  closeModal('m-del-hist');
+  renderDPay();
+}
+
 init();
 </script>
+
+<!-- MODAL: ALERTA DE PAGO -->
+<div class="mbg" id="m-alert">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <button class="xbtn" onclick="closeModal('m-alert')">✕</button>
+    <div class="mtitle">🔔 Configurar alerta</div>
+    <div class="ep-info" id="al-header"></div>
+    <input type="hidden" id="al-lid">
+    <input type="hidden" id="al-idx">
+    <input type="hidden" id="al-date">
+    <div class="fg">
+      <label class="fl">¿Cuándo alertar?</label>
+      <select class="fi fsel" id="al-when">
+        <option value="dayBefore">Un día antes (a las 6AM)</option>
+        <option value="sameDay">El mismo día del pago (a las 6AM)</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="fl">¿Cómo?</label>
+      <select class="fi fsel" id="al-how">
+        <option value="notif">Notificación en pantalla</option>
+        <option value="wa">WA al cliente</option>
+        <option value="both">Ambas</option>
+      </select>
+    </div>
+    <div id="al-wa-info" class="info-box" style="font-size:12px;line-height:1.7;">
+      <strong>Un día antes:</strong> La app te enviará un WA a ti mismo como recordatorio para que entres y envíes la alerta al cliente.<br>
+      <strong>El mismo día:</strong> Se programa una notificación en pantalla a las 6AM. El WA al cliente deberás enviarlo manualmente desde la app.
+    </div>
+    <button class="btn-p" onclick="saveAlert()">Guardar alerta</button>
+    <button class="btn-d" id="al-delete-btn" onclick="deleteAlert()" style="display:none;">Eliminar alerta</button>
+    <button class="btn-o" onclick="closeModal('m-alert')">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: BORRAR HISTORIAL -->
+<div class="mbg" id="m-del-hist">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <button class="xbtn" onclick="closeModal('m-del-hist')">✕</button>
+    <div class="mtitle">🗑 Borrar registro</div>
+    <div class="ep-info" id="dh-info"></div>
+    <input type="hidden" id="dh-pid">
+    <div style="font-size:14px;color:var(--text);margin-bottom:20px;">¿Qué deseas hacer con este registro?</div>
+    <button class="btn-p" style="background:var(--orange);" onclick="restoreHistEntry()">↩ Restaurar — regresar a pendiente</button>
+    <button class="btn-d" onclick="permanentDeleteHist()">🗑 Eliminar permanentemente</button>
+    <button class="btn-o" onclick="closeModal('m-del-hist')">Cancelar</button>
+  </div>
+</div>
+
 </body>
 </html>
