@@ -395,7 +395,21 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <button class="btn-p" onclick="saveSettings()">Guardar</button>
     <div class="divider"></div>
     <div class="section-title">💾 Respaldo de datos</div>
-    <div class="info-box">Si cambias de celular o borras el navegador perderás tus datos. Exporta regularmente y guárdalo en Google Drive o WhatsApp.</div>
+    <div class="info-box">Si cambias de celular o borras el navegador perderás tus datos. Conecta Google Drive para respaldo automático, o exporta manualmente.</div>
+
+    <div style="background:var(--purple-light);border-radius:var(--rs);padding:14px;margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:8px;">☁️ Respaldo automático en Google Drive</div>
+      <div id="gd-status" style="font-size:12px;color:var(--muted);margin-bottom:10px;">⚪ No conectado</div>
+      <div class="fg" style="margin-bottom:8px;">
+        <label class="fl" style="color:var(--purple);">Google OAuth Client ID</label>
+        <input class="fi" id="cfg-drive-cid" type="text" placeholder="xxx.apps.googleusercontent.com" style="font-size:12px;">
+      </div>
+      <button class="btn-p" style="background:var(--purple);font-size:13px;padding:11px;" onclick="connectDrive()">🔗 Conectar Google Drive</button>
+      <div style="font-size:11px;color:var(--purple);margin-top:8px;line-height:1.6;">
+        Para obtener tu Client ID: Google Cloud Console → APIs → Credenciales → OAuth 2.0 → Crear credencial → Aplicación web. Agrega este dominio en "Orígenes autorizados".
+      </div>
+    </div>
+
     <button class="btn-g" onclick="exportData()">📤 Exportar respaldo (.json)</button>
     <button class="btn-o" onclick="document.getElementById('import-file').click()">📥 Importar / Restaurar datos</button>
     <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(this)">
@@ -499,11 +513,16 @@ function computePriceBreakdown(monto,pct,freq,n,firstDate){
   }
   var interest=base*pct/100;
   var proration=0,extraDays=0;
+  // Proration: only when firstDate is MORE than one standard period away.
+  // stdPeriod = natural payment period in days (7/15/30).
+  // If days > stdPeriod: the extra days beyond one period are charged proportionally.
+  // Example: biweekly (15 days), firstDate in 19 days → extraDays = 19-15 = 4.
+  // If days <= stdPeriod: no proration (client pays within the natural window).
   if(firstDate&&firstDate>today){
     var days=daysBetween(today,firstDate);
     var stdPeriod=freq==='weekly'?7:freq==='biweekly'?15:30;
-    if(days>0&&days<stdPeriod){
-      extraDays=days;
+    if(days>stdPeriod){
+      extraDays=days-stdPeriod;
       var dailyRate=(pct/100)/stdPeriod;
       proration=Math.round(base*dailyRate*extraDays*100)/100;
     }
@@ -535,6 +554,9 @@ function amountsForLoan(loan){
 function init(){
   if(!S.owner){document.getElementById('setup-screen').classList.add('open');return;}
   document.getElementById('hdr-sub').textContent=S.owner;
+  // Restore Drive Client ID
+  S.driveClientId=localStorage.getItem('pa_drive_cid')||'';
+  if(S.driveClientId){initGoogleDrive();}
   renderMain();
 }
 function finishSetup(){
@@ -823,6 +845,7 @@ function saveLoan(){
   var loans=DB.loans;
   loans.push({id:'l'+Date.now(),cliente_id:cid,concepto:con,monto:amt,interes:pct,num_pagos:n,frecuencia:freq,first_date:fd,proration:res.proration,fecha_creacion:todayStr()});
   DB.loans=loans;
+  autoBackup();
   showNotif('✓ Préstamo creado');
   closeModal('m-loan');
   renderMain();
@@ -919,6 +942,7 @@ function saveAbono(){
     i++;
   }
   DB.payments=payments;
+  autoBackup();
   showNotif('✓ Abono de '+fmt(amt)+' registrado');
   closeModal('m-abono');
   // Check if all loans for client are now liquidated
@@ -1195,18 +1219,113 @@ function usarPropuesta(){
 // ============================================================
 // SETTINGS
 // ============================================================
-function openSettings(){document.getElementById('cfg-owner').value=S.owner;document.getElementById('cfg-phone').value=S.myphone;document.getElementById('cfg-days').value=S.alertdays;openModal('m-settings');}
+function openSettings(){
+  document.getElementById('cfg-owner').value=S.owner;
+  document.getElementById('cfg-phone').value=S.myphone;
+  document.getElementById('cfg-days').value=S.alertdays;
+  // Restore Drive UI
+  var savedCid=localStorage.getItem('pa_drive_cid')||'';
+  document.getElementById('cfg-drive-cid').value=savedCid;
+  if(S.driveClientId&&GD.authorized){
+    document.getElementById('gd-status').textContent='✅ Conectado a Google Drive';
+    document.getElementById('gd-status').style.color='var(--green)';
+  }else if(savedCid){
+    document.getElementById('gd-status').textContent='⚠️ Client ID guardado — pendiente de autorizar';
+    document.getElementById('gd-status').style.color='var(--orange)';
+  }
+  openModal('m-settings');
+}
 function saveSettings(){S.owner=document.getElementById('cfg-owner').value.trim()||S.owner;S.myphone=document.getElementById('cfg-phone').value.trim();S.alertdays=parseInt(document.getElementById('cfg-days').value)||3;localStorage.setItem('pa_owner',S.owner);localStorage.setItem('pa_phone',S.myphone);localStorage.setItem('pa_days',S.alertdays);document.getElementById('hdr-sub').textContent=S.owner;showNotif('✓ Configuración guardada');closeModal('m-settings');renderMain();}
 
 // ============================================================
 // BACKUP / RESTORE
 // ============================================================
+// ============================================================
+// GOOGLE DRIVE AUTO-BACKUP
+// ============================================================
+var GD={tokenClient:null,accessToken:null,authorized:false};
+
+function initGoogleDrive(){
+  // Load Google Identity Services (GIS) script dynamically
+  if(window.google&&window.google.accounts)return;
+  var s=document.createElement('script');
+  s.src='https://accounts.google.com/gsi/client';
+  s.onload=function(){setupGDTokenClient();};
+  document.head.appendChild(s);
+}
+
+function setupGDTokenClient(){
+  if(!window.google||!window.google.accounts)return;
+  GD.tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:S.driveClientId||'',
+    scope:'https://www.googleapis.com/auth/drive.file',
+    callback:function(resp){
+      if(resp.error){showNotif('Error al conectar con Drive: '+resp.error);return;}
+      GD.accessToken=resp.access_token;
+      GD.authorized=true;
+      localStorage.setItem('pa_drive_auth','1');
+      document.getElementById('gd-status').textContent='✅ Conectado a Google Drive';
+      document.getElementById('gd-status').style.color='var(--green)';
+      showNotif('✅ Conectado a Google Drive');
+      exportToGDrive();
+    }
+  });
+}
+
+function connectDrive(){
+  var cid=document.getElementById('cfg-drive-cid').value.trim();
+  if(!cid){showNotif('Ingresa tu Client ID de Google');return;}
+  S.driveClientId=cid;
+  localStorage.setItem('pa_drive_cid',cid);
+  initGoogleDrive();
+  setTimeout(function(){
+    if(GD.tokenClient){GD.tokenClient.client_id=cid;GD.tokenClient.requestAccessToken({prompt:'consent'});}
+    else{showNotif('Cargando Google Auth, intenta de nuevo en 2 segundos');}
+  },1000);
+}
+
+function exportToGDrive(){
+  var data={version:4,exportDate:todayStr(),owner:S.owner,clients:DB.clients,loans:DB.loans,payments:DB.payments,overrides:DB.overrides};
+  var json=JSON.stringify(data,null,2);
+  var filename='PrestApp_respaldo_'+todayStr()+'.json';
+  if(!GD.authorized||!GD.accessToken){return;}
+  // Use multipart upload to Drive
+  var boundary='-------314159265358979';
+  var delimiter='\r\n--'+boundary+'\r\n';
+  var close_delim='\r\n--'+boundary+'--';
+  var metadata={name:filename,mimeType:'application/json'};
+  var body=delimiter
+    +'Content-Type: application/json\r\n\r\n'
+    +JSON.stringify(metadata)
+    +delimiter
+    +'Content-Type: application/json\r\n\r\n'
+    +json
+    +close_delim;
+  fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+GD.accessToken,'Content-Type':'multipart/related; boundary="'+boundary+'"'},
+    body:body
+  }).then(function(r){return r.json();}).then(function(d){
+    if(d.id){showNotif('✅ Guardado en Google Drive: '+filename);}
+    else{showNotif('Error en Drive: '+JSON.stringify(d.error&&d.error.message||d));}
+  }).catch(function(e){showNotif('Error de red con Drive');});
+}
+
+function autoBackup(){
+  // Called after every data change if Drive authorized
+  if(GD.authorized&&GD.accessToken) exportToGDrive();
+  // Also save locally to indexedDB / sessionStorage as secondary
+}
+
 function exportData(){
+  // Local download always works
   var data={version:4,exportDate:todayStr(),owner:S.owner,clients:DB.clients,loans:DB.loans,payments:DB.payments,overrides:DB.overrides};
   var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');a.href=url;a.download='PrestApp_respaldo_'+todayStr()+'.json';a.click();URL.revokeObjectURL(url);
-  showNotif('✓ Respaldo exportado');
+  showNotif('✓ Respaldo descargado');
+  // Also push to Drive if connected
+  if(GD.authorized) exportToGDrive();
 }
 function importData(input){
   var file=input.files[0];if(!file)return;
