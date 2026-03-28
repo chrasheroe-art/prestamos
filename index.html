@@ -218,7 +218,10 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 <!-- HEADER -->
 <div class="hdr">
   <div class="hdr-row">
-    <div><h1>💼 PrestApp</h1><div class="hdr-sub" id="hdr-sub">—</div></div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div id="hdr-avatar" onclick="openSettings()" style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;overflow:hidden;flex-shrink:0;">💼</div>
+      <div><h1 style="font-size:17px;">PrestApp</h1><div class="hdr-sub" id="hdr-sub">—</div></div>
+    </div>
     <button class="ico-btn" onclick="openSettings()">⚙️</button>
   </div>
 </div>
@@ -278,7 +281,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <div id="pr-pct-wrap" class="fg"><label class="fl">Interés (%)</label><input class="fi" id="pr-interest" type="number" placeholder="0" min="0" value="10" oninput="calcProp()"></div>
     <div class="fg"><label class="fl">Número de pagos</label><input class="fi" id="pr-npay" type="number" placeholder="1" min="1" value="4" oninput="calcProp()"></div>
     <div class="fg"><label class="fl">Fecha del primer pago</label><input class="fi" id="pr-firstdate" type="date" onchange="calcProp()"></div>
-    <div class="fg"><label class="fl">Cliente (para enviar por WhatsApp)</label><select class="fi fsel" id="pr-client"><option value="">Selecciona cliente (opcional)</option></select></div>
+    <div class="fg"><label class="fl">Cliente (para enviar por WhatsApp)</label><select class="fi fsel" id="pr-client" onchange="propClientChange()"><option value="">Selecciona cliente (opcional)</option></select></div>
     <div id="pr-result" style="display:none;" class="prop-result">
       <div class="prop-result-title">📊 Resumen de la propuesta</div>
       <div id="pr-total" class="prop-total"></div>
@@ -314,8 +317,12 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
       </select>
     </div>
     <div id="l-pct-wrap" class="fg"><label class="fl">Interés (%)</label><input class="fi" id="l-interest" type="number" placeholder="0" min="0" value="10" oninput="calcLoanPreview()"></div>
-    <div class="fg"><label class="fl">Número de pagos</label><input class="fi" id="l-npay" type="number" placeholder="1" min="1" value="4" oninput="calcLoanPreview()"></div>
-    <div class="fg"><label class="fl">Fecha del primer pago *</label><input class="fi" id="l-firstdate" type="date" oninput="calcLoanPreview()"></div>
+    <div class="fg"><label class="fl">Número de pagos</label><input class="fi" id="l-npay" type="number" placeholder="1" min="1" value="4" oninput="calcLoanPreview();buildDailyDates()"></div>
+    <div class="fg"><label class="fl">Fecha del primer pago *</label><input class="fi" id="l-firstdate" type="date" oninput="calcLoanPreview();buildDailyDates()"></div>
+    <div id="l-daily-dates-wrap" style="display:none;">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Fecha de cada pago</div>
+      <div id="l-daily-dates"></div>
+    </div>
     <div class="preview" id="l-prev">Selecciona monto y fecha</div>
     <button class="btn-p" onclick="saveLoan()">Crear préstamo</button>
     <button class="btn-o" onclick="closeModal('m-loan')">Cancelar</button>
@@ -400,6 +407,17 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <button class="xbtn" onclick="closeModal('m-settings')">✕</button>
     <div class="mtitle">⚙️ Configuración</div>
     <div class="fg"><label class="fl">Tu nombre</label><input class="fi" id="cfg-owner" type="text"></div>
+    <div class="fg">
+      <label class="fl">Foto de perfil</label>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:4px;">
+        <div id="cfg-avatar-preview" style="width:60px;height:60px;border-radius:50%;background:var(--blue-light);display:flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;flex-shrink:0;border:2px solid var(--border);">💼</div>
+        <div style="flex:1;">
+          <button class="btn-o" style="margin-top:0;font-size:13px;padding:10px;" onclick="document.getElementById('cfg-photo-input').click()">📷 Cambiar foto</button>
+          <button class="btn-o" style="margin-top:6px;font-size:13px;padding:8px;color:var(--red);border-color:var(--red-light);" onclick="removeProfilePhoto()">✕ Quitar foto</button>
+        </div>
+      </div>
+      <input type="file" id="cfg-photo-input" accept="image/*" style="display:none;" onchange="handleProfilePhoto(this)">
+    </div>
     <div class="fg"><label class="fl">Tu WhatsApp (10 dígitos)</label><input class="fi" id="cfg-phone" type="tel" maxlength="10"></div>
     <div class="fg"><label class="fl">Días de anticipación para alertas</label><input class="fi" id="cfg-days" type="number" min="1" max="30"></div>
     <button class="btn-p" onclick="saveSettings()">Guardar</button>
@@ -421,6 +439,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     </div>
 
     <button class="btn-g" onclick="exportData()">📤 Exportar respaldo (.json)</button>
+    <button class="btn-o" style="background:var(--green-light);color:var(--green);border:none;font-weight:600;" onclick="sendBackupWA()">📱 Enviar respaldo por WhatsApp</button>
     <button class="btn-o" onclick="document.getElementById('import-file').click()">📥 Importar / Restaurar datos</button>
     <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(this)">
   </div>
@@ -517,10 +536,8 @@ function suggestFirstDate(freq){
 function computePriceBreakdown(monto,pct,freq,n,firstDate){
   var today=todayStr();
   var base=monto;
-  if(freq==='daily'){
-    var interest=Math.round(monto/500)*15*n;
-    return{base:base,interest:interest,proration:0,extraDays:0,total:base+interest,perPay:interest};
-  }
+  // Daily now uses standard % interest (same as weekly/biweekly/monthly)
+  // The old $15/$500/day is a legacy display hint only, not forced here
   var interest=base*pct/100;
   var proration=0,extraDays=0;
   // Proration: only when firstDate is MORE than one standard period away.
@@ -546,10 +563,7 @@ function computePriceBreakdown(monto,pct,freq,n,firstDate){
 // ============================================================
 function amountsForLoan(loan){
   var n=loan.num_pagos||1;
-  if(loan.frecuencia==='daily'){
-    var da=Math.round((loan.monto||0)/500)*15;
-    var a=[];for(var i=0;i<n;i++)a.push(da);return a;
-  }
+  // ALL frequencies now use capital+interest model (daily no longer hardcodes $15/$500)
   var total=(loan.monto||0)*(1+(loan.interes||0)/100)+(loan.proration||0);
   var perPay=Math.floor((total/n)*100)/100;
   var arr=[];
@@ -564,6 +578,7 @@ function amountsForLoan(loan){
 function init(){
   loadAlerts();
   checkScheduledNotifs();
+  loadProfilePhoto();
   if(!S.owner){document.getElementById('setup-screen').classList.add('open');return;}
   document.getElementById('hdr-sub').textContent=S.owner;
   // Restore Drive Client ID
@@ -604,7 +619,17 @@ function renderMain(){
   var tot=0,ovCnt=0,wCnt=0;
   if(tab==='cobrar'){
     entries.forEach(function(e){e.loans.forEach(function(l){tot+=remDebt(l);});var u=urgency(e.loans);if(u==='overdue')ovCnt++;else if(u==='warning')wCnt++;});
-    entries.sort(function(a,b){var o={overdue:0,warning:1,ok:2};return(o[urgency(a.loans)]||2)-(o[urgency(b.loans)]||2);});
+    entries.sort(function(a,b){
+      var o={overdue:0,warning:1,ok:2};
+      var ua=o[urgency(a.loans)]||2, ub=o[urgency(b.loans)]||2;
+      if(ua!==ub) return ua-ub;
+      // Within same urgency: sort by next due date ascending (soonest first), then alphabetical
+      var da=nextDueRaw(a.loans), db=nextDueRaw(b.loans);
+      if(da&&db) return da<db?-1:da>db?1:0;
+      if(da) return -1; if(db) return 1;
+      var na=(a.cl?a.cl.nombre:''), nb=(b.cl?b.cl.nombre:'');
+      return na.localeCompare(nb,'es');
+    });
   }else{
     entries.forEach(function(e){e.loans.forEach(function(l){tot+=totalPaid(l);});});
   }
@@ -806,18 +831,23 @@ function isLiq(loan){return pendCnt(loan)===0;}
 function urgency(loans){var w='ok';loans.forEach(function(l){getSched(l).forEach(function(p){if(p.status==='pagado')return;var u=dateUrg(p.date,p.status);if(u==='overdue')w='overdue';else if(u==='warning'&&w!=='overdue')w='warning';});});return w;}
 function dateUrg(ds,status){if(status==='pagado')return 'ok';var days=S.alertdays||3;var now=new Date();now.setHours(0,0,0,0);var due=parseDate(ds);var diff=Math.floor((due-now)/86400000);if(diff<0)return 'overdue';if(diff<=days)return 'warning';return 'ok';}
 function nextDue(loans){var dates=[];loans.forEach(function(l){getSched(l).forEach(function(p){if(p.status!=='pagado')dates.push(p.date);});});if(!dates.length)return null;dates.sort();return fmtDate(dates[0]);}
+function nextDueRaw(loans){var dates=[];loans.forEach(function(l){getSched(l).forEach(function(p){if(p.status!=='pagado')dates.push(p.date);});});if(!dates.length)return null;dates.sort();return dates[0];}
 
 // ============================================================
 // LOAN CRUD
 // ============================================================
 function loanFreqChange(){
   var freq=document.getElementById('l-freq').value;
-  document.getElementById('l-pct-wrap').style.display=freq==='daily'?'none':'';
+  // Daily now supports interest % too
+  document.getElementById('l-pct-wrap').style.display='';
   document.getElementById('l-firstdate').value=suggestFirstDate(freq);
+  // Show/hide multi-date container for daily
+  var mdWrap=document.getElementById('l-daily-dates-wrap');
+  if(mdWrap) mdWrap.style.display=freq==='daily'?'':'none';
   calcLoanPreview();
 }
 function openNewLoan(){
-  var clients=DB.clients;
+  var clients=DB.clients.slice().sort(function(a,b){return a.nombre.localeCompare(b.nombre,'es');});
   var sel=document.getElementById('l-client');
   sel.innerHTML='<option value="">Selecciona cliente</option>';
   clients.forEach(function(c){sel.innerHTML+='<option value="'+c.id+'">'+c.nombre+'</option>';});
@@ -828,8 +858,28 @@ function openNewLoan(){
   document.getElementById('l-concept').value='';
   document.getElementById('l-pct-wrap').style.display='';
   document.getElementById('l-firstdate').value=suggestFirstDate('biweekly');
+  buildDailyDates();
   calcLoanPreview();
   openModal('m-loan');
+}
+function buildDailyDates(){
+  var freq=document.getElementById('l-freq').value;
+  var wrap=document.getElementById('l-daily-dates-wrap');
+  var container=document.getElementById('l-daily-dates');
+  if(!wrap||!container)return;
+  if(freq!=='daily'){wrap.style.display='none';return;}
+  var n=parseInt(document.getElementById('l-npay').value)||1;
+  var fd=document.getElementById('l-firstdate').value;
+  wrap.style.display='';
+  var html='';
+  for(var i=0;i<n;i++){
+    var def=fd?calcDateFromFirst(fd,'daily',i):'';
+    html+='<div class="fg" style="margin-bottom:8px;">'
+      +'<label class="fl" style="font-size:10px;">Pago '+(i+1)+'</label>'
+      +'<input class="fi" id="l-dd-'+i+'" type="date" value="'+def+'" style="padding:9px 12px;font-size:13px;">'
+      +'</div>';
+  }
+  container.innerHTML=html;
 }
 function calcLoanPreview(){
   var amt=parseFloat(document.getElementById('l-amount').value)||0;
@@ -839,12 +889,17 @@ function calcLoanPreview(){
   var fd=document.getElementById('l-firstdate').value;
   if(!amt){document.getElementById('l-prev').textContent='Ingresa el monto';return;}
   var res=computePriceBreakdown(amt,pct,freq,n,fd);
-  // Show: Capital, Interés (no percentage, no proration breakdown), Total, Pago
   var interestTotal=Math.round((res.interest+res.proration)*100)/100;
   var txt='Capital: '+fmt(res.base);
-  txt+='\nInterés: '+fmt(interestTotal);
-  txt+='\nTotal: '+fmt(res.total);
-  txt+='\nPago: '+fmt(res.total/n);
+  if(freq==='daily'){
+    txt+='\nInterés ('+pct+'% por '+n+' día'+(n>1?'s':'')+'): '+fmt(interestTotal);
+    txt+='\nTotal a cobrar: '+fmt(res.total);
+    txt+='\nPago por cuota: '+fmt(res.total/n);
+  }else{
+    txt+='\nInterés: '+fmt(interestTotal);
+    txt+='\nTotal: '+fmt(res.total);
+    txt+='\nPago: '+fmt(res.total/n);
+  }
   document.getElementById('l-prev').textContent=txt;
 }
 function saveLoan(){
@@ -857,9 +912,21 @@ function saveLoan(){
   var fd=document.getElementById('l-firstdate').value;
   if(!cid||!con||!amt||!fd){showNotif('Completa los campos obligatorios');return;}
   var res=computePriceBreakdown(amt,pct,freq,n,fd);
+  var loanId='l'+Date.now();
   var loans=DB.loans;
-  loans.push({id:'l'+Date.now(),cliente_id:cid,concepto:con,monto:amt,interes:pct,num_pagos:n,frecuencia:freq,first_date:fd,proration:res.proration,fecha_creacion:todayStr()});
+  loans.push({id:loanId,cliente_id:cid,concepto:con,monto:amt,interes:pct,num_pagos:n,frecuencia:freq,first_date:fd,proration:res.proration,fecha_creacion:todayStr()});
   DB.loans=loans;
+  // For daily loans: save per-payment dates as overrides
+  if(freq==='daily'){
+    var res2=computePriceBreakdown(amt,pct,freq,n,fd);
+    var perPay=Math.floor((res2.total/n)*100)/100;
+    for(var i=0;i<n;i++){
+      var inp=document.getElementById('l-dd-'+i);
+      var dv=inp?inp.value:calcDateFromFirst(fd,'daily',i);
+      var amt2=i<n-1?perPay:Math.round((res2.total-perPay*(n-1))*100)/100;
+      saveOv(loanId,i,{date:dv,amount:amt2});
+    }
+  }
   autoBackup();
   showNotif('✓ Préstamo creado');
   closeModal('m-loan');
@@ -1073,12 +1140,21 @@ function saveClient(){
   closeModal('m-client');closeModal('m-clist');
   if(S._fromPropuesta){
     S._fromPropuesta=false;
-    _openLoanFromProp();
-    // Select the newly created client
-    setTimeout(function(){
-      var sel=document.getElementById('l-client');
-      if(sel) sel.value=newId;
-    },100);
+    if(S._afterPropClient==='prop'){
+      S._afterPropClient=null;
+      // Reopen prop and select new client
+      openProp();
+      setTimeout(function(){
+        var sel=document.getElementById('pr-client');
+        if(sel) sel.value=newId;
+      },150);
+    }else{
+      _openLoanFromProp();
+      setTimeout(function(){
+        var sel=document.getElementById('l-client');
+        if(sel) sel.value=newId;
+      },100);
+    }
   }else{
     renderMain();
   }
@@ -1095,9 +1171,9 @@ function openClientList(){
 // PROPUESTAS — simulator with WA send
 // ============================================================
 function openProp(){
-  var clients=DB.clients;
+  var clients=DB.clients.slice().sort(function(a,b){return a.nombre.localeCompare(b.nombre,'es');});
   var sel=document.getElementById('pr-client');
-  sel.innerHTML='<option value="">Selecciona cliente (opcional)</option>';
+  sel.innerHTML='<option value="">Selecciona cliente (opcional)</option><option value="__new__">➕ Crear nuevo cliente…</option>';
   clients.forEach(function(c){sel.innerHTML+='<option value="'+c.id+'">'+c.nombre+'</option>';});
   document.getElementById('pr-amount').value='';
   document.getElementById('pr-freq').value='biweekly';
@@ -1121,8 +1197,7 @@ function calcProp(){
   if(!amt){result.style.display='none';return;}
   var res=computePriceBreakdown(amt,pct,freq,n,fd);
   var amounts=[];
-  if(freq==='daily'){var da=Math.round(amt/500)*15;for(var i=0;i<n;i++)amounts.push(da);}
-  else{var perPay=Math.floor((res.total/n)*100)/100;for(var j=0;j<n-1;j++)amounts.push(perPay);amounts.push(Math.round((res.total-perPay*(n-1))*100)/100);}
+  var perPay=Math.floor((res.total/n)*100)/100;for(var j=0;j<n-1;j++)amounts.push(perPay);amounts.push(Math.round((res.total-perPay*(n-1))*100)/100);
   var dates=[];for(var k=0;k<n;k++)dates.push(calcDateFromFirst(fd,freq,k));
 
   document.getElementById('pr-total').textContent=fmt(res.total);
@@ -1141,18 +1216,7 @@ function calcProp(){
   document.getElementById('pr-rows').innerHTML=rows;
 
   var dhtml='';
-  if(freq==='daily'){
-    var dailyRate=Math.round(amt/500)*15;
-    dhtml='<div class="prop-date-item" style="background:var(--orange-light);border-radius:var(--rs);padding:12px 14px;">'
-      +'<span style="font-size:13px;color:var(--orange);line-height:1.8;">'
-      +'Por cada <strong>$500</strong> prestados se cobran <strong>$15 por día</strong>.<br>'
-      +'Para este préstamo de '+fmt(amt)+': <strong>'+fmt(dailyRate)+' por día</strong>.<br>'
-      +'Para '+n+' día'+(n>1?'s':'')+': <strong>'+fmt(dailyRate*n)+' de interés total</strong>.<br>'
-      +'El cómputo inicia a partir del día del préstamo.'
-      +'</span></div>';
-  }else{
-    dates.forEach(function(d,i){dhtml+='<div class="prop-date-item"><span class="pdi-num">'+(i+1)+'</span><span class="pdi-date">'+fmtDate(d)+'</span><span class="pdi-amt">'+fmt(amounts[i])+'</span></div>';});
-  }
+  dates.forEach(function(d,i){dhtml+='<div class="prop-date-item"><span class="pdi-num">'+(i+1)+'</span><span class="pdi-date">'+fmtDate(d)+'</span><span class="pdi-amt">'+fmt(amounts[i])+'</span></div>';});
   document.getElementById('pr-dates').innerHTML=dhtml;
   document.getElementById('pr-note').style.display='none';
 
@@ -1172,6 +1236,15 @@ function calcProp(){
   result.style.display='';
 }
 
+function propClientChange(){
+  var val=document.getElementById('pr-client').value;
+  if(val==='__new__'){
+    document.getElementById('pr-client').value='';
+    S._fromPropuesta=true;
+    S._afterPropClient='prop'; // flag to return to prop view
+    openClientModal();
+  }
+}
 function sendPropWA(){
   var amt=parseFloat(document.getElementById('pr-amount').value)||0;
   var pct=parseFloat(document.getElementById('pr-interest').value)||0;
@@ -1198,11 +1271,7 @@ function sendPropWA(){
   msg+='💰 Capital: '+fmt(res.base)+'\n';
   msg+='📈 Interés: '+fmt(interestTotal)+'\n';
   msg+='💵 Total a pagar: '+fmt(res.total)+'\n';
-  if(freq==='daily'){
-    var dailyRate=Math.round(amt/500)*15;
-    msg+='📅 Pago diario: '+fmt(dailyRate)+' por día\n';
-    msg+='   ($15 por cada $500 · inicia desde el día del préstamo)\n';
-    msg+='🔢 Número de días: '+n+'\n';
+  if(false){ // legacy daily block removed
   }else{
     msg+='📅 Tipo de pago: '+{daily:'Diario',weekly:'Semanal',biweekly:'Quincenal',monthly:'Mensual'}[freq]+'\n';
     msg+='🔢 Número de pagos: '+n+'\n';
@@ -1235,7 +1304,7 @@ function usarPropuesta(){
 }
 function _openLoanFromProp(){
   var ps=S._propState;if(!ps)return;
-  var clients=DB.clients;
+  var clients=DB.clients.slice().sort(function(a,b){return a.nombre.localeCompare(b.nombre,'es');});
   var sel=document.getElementById('l-client');
   sel.innerHTML='<option value="">Selecciona cliente</option>';
   clients.forEach(function(c){sel.innerHTML+='<option value="'+c.id+'">'+c.nombre+'</option>';});
@@ -1265,6 +1334,7 @@ function _openLoanFromProp(){
 // SETTINGS
 // ============================================================
 function openSettings(){
+  loadProfilePhoto();
   document.getElementById('cfg-owner').value=S.owner;
   document.getElementById('cfg-phone').value=S.myphone;
   document.getElementById('cfg-days').value=S.alertdays;
@@ -1362,6 +1432,26 @@ function autoBackup(){
   // Also save locally to indexedDB / sessionStorage as secondary
 }
 
+
+function sendBackupWA(){
+  var phone=S.myphone.replace(/\D/g,'');
+  if(phone.length===10) phone='52'+phone;
+  if(phone.length<12){showNotif('Agrega tu WhatsApp en configuración primero');return;}
+  var data={version:4,exportDate:todayStr(),owner:S.owner,clients:DB.clients,loans:DB.loans,payments:DB.payments,overrides:DB.overrides};
+  var json=JSON.stringify(data);
+  var size=Math.round(json.length/1024);
+  // WhatsApp doesn't allow file sending via URL, so we send a summary + remind to use export
+  var msg='📦 Respaldo PrestApp — '+todayStr()+'\n'
+    +'👤 Propietario: '+S.owner+'\n'
+    +'👥 Clientes: '+DB.clients.length+'\n'
+    +'💳 Préstamos: '+DB.loans.length+'\n'
+    +'💰 Pagos: '+DB.payments.length+'\n'
+    +'📊 Tamaño: ~'+size+' KB\n\n'
+    +'⚠️ Para restaurar: exporta el archivo .json desde la app y guárdalo en Drive o aquí en WhatsApp como documento.';
+  window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
+  // Also trigger local download so they can forward the file
+  setTimeout(function(){exportData();},500);
+}
 function exportData(){
   // Local download always works
   var data={version:4,exportDate:todayStr(),owner:S.owner,clients:DB.clients,loans:DB.loans,payments:DB.payments,overrides:DB.overrides};
@@ -1400,6 +1490,41 @@ function hashStr(s){var h=0;for(var i=0;i<s.length;i++)h=Math.imul(31,h)+s.charC
 function showNotif(msg,dur){var n=document.getElementById('notif');n.textContent=msg;n.className='notif show';setTimeout(function(){n.classList.remove('show');},dur||3200);}
 function showNotifSuccess(msg,dur){var n=document.getElementById('notif');n.textContent=msg;n.className='notif show success';setTimeout(function(){n.classList.remove('show');},dur||3000);}
 
+
+
+// ============================================================
+// PROFILE PHOTO
+// ============================================================
+function loadProfilePhoto(){
+  var photo=localStorage.getItem('pa_photo');
+  var avatarEl=document.getElementById('hdr-avatar');
+  var previewEl=document.getElementById('cfg-avatar-preview');
+  if(photo){
+    var img='<img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;">';
+    if(avatarEl) avatarEl.innerHTML=img;
+    if(previewEl) previewEl.innerHTML=img;
+  }else{
+    if(avatarEl) avatarEl.innerHTML='💼';
+    if(previewEl) previewEl.innerHTML='💼';
+  }
+}
+function handleProfilePhoto(input){
+  var file=input.files[0];if(!file)return;
+  if(file.size>2*1024*1024){showNotif('La foto debe ser menor a 2MB');return;}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    localStorage.setItem('pa_photo',e.target.result);
+    loadProfilePhoto();
+    showNotif('✓ Foto de perfil actualizada');
+  };
+  reader.readAsDataURL(file);
+  input.value='';
+}
+function removeProfilePhoto(){
+  localStorage.removeItem('pa_photo');
+  loadProfilePhoto();
+  showNotif('Foto eliminada');
+}
 
 // ============================================================
 // ALERTS SYSTEM
