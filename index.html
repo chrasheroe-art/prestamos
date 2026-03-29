@@ -591,7 +591,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 // ============================================================
 // STATE & DB
 // ============================================================
-var S={owner:localStorage.getItem('pa_owner')||'',myphone:localStorage.getItem('pa_phone')||'',alertdays:parseInt(localStorage.getItem('pa_days')||'3'),tab:'cobrar',client:null,dtab:'deudas',_cl:null,_total:0};
+var S={owner:localStorage.getItem('pa_owner')||'',myphone:localStorage.getItem('pa_phone')||'',alertdays:parseInt(localStorage.getItem('pa_days')||'3'),tab:'cobrar',client:null,dtab:'deudas',_cl:null,_total:0,sortOrder:'urgencia'};
 function db_load(k,d){try{return JSON.parse(localStorage.getItem(k))||d;}catch(e){return d;}}
 function db_save(k,v){localStorage.setItem(k,JSON.stringify(v));}
 var DB={
@@ -762,17 +762,28 @@ function renderMain(){
   var tot=0,ovCnt=0,wCnt=0;
   if(tab==='cobrar'){
     entries.forEach(function(e){e.loans.forEach(function(l){tot+=remDebt(l);});var u=urgency(e.loans);if(u==='overdue')ovCnt++;else if(u==='warning')wCnt++;});
-    entries.sort(function(a,b){
-      var o={overdue:0,warning:1,ok:2};
-      var ua=o[urgency(a.loans)]||2, ub=o[urgency(b.loans)]||2;
-      if(ua!==ub) return ua-ub;
-      // Within same urgency: sort by next due date ascending (soonest first), then alphabetical
-      var da=nextDueRaw(a.loans), db=nextDueRaw(b.loans);
-      if(da&&db) return da<db?-1:da>db?1:0;
-      if(da) return -1; if(db) return 1;
-      var na=(a.cl?a.cl.nombre:''), nb=(b.cl?b.cl.nombre:'');
-      return na.localeCompare(nb,'es');
-    });
+    if(S.sortOrder==='fecha_asc'||S.sortOrder==='fecha_desc'){
+      entries.forEach(function(e){
+        // Tomar la fecha más antigua de los préstamos pendientes
+        var dates=[];
+        e.loans.forEach(function(l){getSched(l).forEach(function(p){if(p.status!=='pagado')dates.push(p.date);});});
+        dates.sort();
+        e._sortDate=dates.length?dates[0]:'9999';
+      });
+      var dir=S.sortOrder==='fecha_asc'?1:-1;
+      entries.sort(function(a,b){return dir*(a._sortDate<b._sortDate?-1:a._sortDate>b._sortDate?1:0);});
+    }else{
+      entries.sort(function(a,b){
+        var o={overdue:0,warning:1,ok:2};
+        var ua=o[urgency(a.loans)]||2, ub=o[urgency(b.loans)]||2;
+        if(ua!==ub) return ua-ub;
+        var da=nextDueRaw(a.loans), db=nextDueRaw(b.loans);
+        if(da&&db) return da<db?-1:da>db?1:0;
+        if(da) return -1; if(db) return 1;
+        var na=(a.cl?a.cl.nombre:''), nb=(b.cl?b.cl.nombre:'');
+        return na.localeCompare(nb,'es');
+      });
+    }
   }else{
     entries.forEach(function(e){e.loans.forEach(function(l){tot+=totalPaid(l);});});
   }
@@ -781,7 +792,15 @@ function renderMain(){
     +'<div class="badges"><span class="badge '+(tab==='cobrar'?'b-blue':'b-green')+'">'+(tab==='cobrar'?'Por cobrar':'Total cobrado')+'</span>'
     +(ovCnt?'<span class="badge b-red">⚠ '+ovCnt+' vencido'+(ovCnt>1?'s':'')+'</span>':'')
     +(wCnt?'<span class="badge b-orange">🕐 '+wCnt+' próximo'+(wCnt>1?'s':'')+'</span>':'')
-    +'</div></div><div class="srch"><input placeholder="Buscar cliente..." oninput="filterList(this.value)"></div><div class="list" id="cli-list">';
+    +'</div></div>'
+    +(tab==='cobrar'?'<div style="padding:0 14px 6px;display:flex;gap:8px;align-items:center;">'
+      +'<span style="font-size:11px;color:var(--muted);font-weight:600;">Ordenar:</span>'
+      +'<select onchange="S.sortOrder=this.value;renderMain()" style="font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text);outline:none;">'
+      +'<option value="urgencia"'+(S.sortOrder==='urgencia'?' selected':'')+'>⚠ Por urgencia</option>'
+      +'<option value="fecha_asc"'+(S.sortOrder==='fecha_asc'?' selected':'')+'>📅 Fecha ↑ antigua primero</option>'
+      +'<option value="fecha_desc"'+(S.sortOrder==='fecha_desc'?' selected':'')+'>📅 Fecha ↓ reciente primero</option>'
+      +'</select></div>':'')
+    +'<div class="srch"><input placeholder="Buscar cliente..." oninput="filterList(this.value)"></div><div class="list" id="cli-list">';
   if(!entries.length){
     html+='<div class="empty"><div class="empty-ico">'+(tab==='historico'?'📋':'💰')+'</div><div>'+(tab==='historico'?'Sin historial de pagos aún':'Sin préstamos activos')+'</div></div>';
   }else{
@@ -868,22 +887,44 @@ function renderDPay(){
         var loan_n=loan.num_pagos||1;
         var pay_cap=Math.round((loan.monto||0)/loan_n*100)/100;
         var pay_int=Math.round(Math.max(0,p.amount-pay_cap)*100)/100;
-        // Mostrar siempre el desglose capital + interés
+        // Atraso
+        var atr=calcAtraso(loan,i,p);
+        var totalConAtraso=Math.round((p.amount+atr.monto)*100)/100;
+        // Desglose capital + interés
         var breakdownHtml='';
         if(p.amount>0.009){
           if(pay_int>0.009){
-            breakdownHtml='<div style="font-size:10px;color:var(--muted);margin-top:3px;font-family:DM Mono,monospace;white-space:nowrap;">'+fmt(pay_cap)+' <span style="color:var(--green);">+ '+fmt(pay_int)+'</span></div>';
+            breakdownHtml='<div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:DM Mono,monospace;white-space:nowrap;">'+fmt(pay_cap)+' <span style="color:var(--green);">+'+fmt(pay_int)+'</span>';
           } else {
-            breakdownHtml='<div style="font-size:10px;color:var(--muted);margin-top:3px;font-family:DM Mono,monospace;">Capital: '+fmt(pay_cap)+'</div>';
+            breakdownHtml='<div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:DM Mono,monospace;">Capital: '+fmt(pay_cap);
           }
+          if(atr.monto>0){
+            breakdownHtml+=' <span style="color:var(--red);">+'+fmt(atr.monto)+'</span>';
+          }
+          breakdownHtml+='</div>';
         }
+        // Fila de atraso editable (solo si vencido o tiene atraso)
+        var atrasoRowHtml='';
+        if(atr.dias>0||u==='overdue'){
+          var detBtnLabel=atr.detenido?'▶ Reanudar':'⏹ Detener';
+          var detBtnStyle=atr.detenido?'background:var(--green-light);color:var(--green);':'background:var(--red-light);color:var(--red);';
+          atrasoRowHtml='<div style="margin-top:8px;padding:8px 10px;background:var(--red-light);border-radius:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+            +'<span style="font-size:11px;color:var(--red);font-weight:700;flex:0 0 auto;">⏰ Atraso:</span>'
+            +'<input type="number" min="0" value="'+atr.dias+'" style="width:54px;padding:3px 7px;font-size:12px;border:1px solid var(--red-light);border-radius:6px;font-family:DM Mono,monospace;text-align:center;background:#fff;color:var(--red);font-weight:700;" '
+            +'onchange="saveAtrasoOverride(\''+loan.id+'\','+i+',parseInt(this.value))" /> '
+            +'<span style="font-size:11px;color:var(--red);">días × $50 = <strong>'+fmt(atr.monto)+'</strong></span>'
+            +'<button onclick="toggleAtrasoStop(\''+loan.id+'\','+i+')" style="'+detBtnStyle+'border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:auto;">'+detBtnLabel+'</button>'
+            +'</div>';
+        }
+        var displayTotal=atr.monto>0?totalConAtraso:p.amount;
         var amtHtml=isPartial
-          ?'<div class="pi-amt orange" style="font-size:12px;line-height:1.3;text-align:right;">'+fmt(restante)+'<br><span style="color:var(--muted);font-size:10px;">de '+fmt(p.amount)+'</span>'+breakdownHtml+'</div>'
-          :'<div style="text-align:right;"><div class="pi-amt'+(u==='overdue'?' red':u==='warning'?' orange':'')+'">'+fmt(p.amount)+'</div>'+breakdownHtml+'</div>';
+          ?'<div class="pi-amt orange" style="font-size:12px;line-height:1.3;text-align:right;">'+fmt(restante)+'<br><span style="color:var(--muted);font-size:10px;">de '+fmt(displayTotal)+'</span>'+breakdownHtml+'</div>'
+          :'<div style="text-align:right;"><div class="pi-amt'+(u==='overdue'?' red':u==='warning'?' orange':'')+(atr.monto>0?' red':'')+'">'+fmt(displayTotal)+'</div>'+breakdownHtml+'</div>';
         html+='<div class="pi'+pc+'">'
           +'<div class="pi-top"><div class="pi-ico" style="background:'+ibg+'">'+ico+'</div>'
           +'<div class="pi-info"><div class="pi-name">'+(p.concept||loan.concepto)+' · Pago '+(i+1)+'/'+sched.length+'</div>'
           +'<div class="'+dc+'">'+fmtDate(p.date)+'</div>'+pill+'</div>'+amtHtml+'</div>'
+          +atrasoRowHtml
           +'<div class="pi-actions">'
           +'<button class="pi-btn pbb" onclick="openEditPay(\''+loan.id+'\','+i+')">✏ Editar</button>'
           +'<button class="pi-btn pbg" onclick="openAbono(\''+loan.id+'\','+i+')">+ Abono</button>'
@@ -978,7 +1019,16 @@ function getAbonado(lid,idx,payments){
   var ps=payments||DB.payments;
   return ps.filter(function(p){return String(p.prestamo_id)===String(lid)&&parseInt(p.pago_index)===idx;}).reduce(function(s,p){return s+(p.monto||0);},0);
 }
-function remDebt(loan){return getSched(loan).filter(function(p){return p.status!=='pagado';}).reduce(function(s,p){return s+Math.max(0,p.amount-(p.abonado||0));},0);}
+function remDebt(loan){
+  var sched=getSched(loan);
+  var total=0;
+  sched.forEach(function(p,idx){
+    if(p.status==='pagado') return;
+    var a=calcAtraso(loan,idx,p);
+    total+=Math.max(0,p.amount-(p.abonado||0))+a.monto;
+  });
+  return total;
+}
 function pendCnt(loan){return getSched(loan).filter(function(p){return p.status!=='pagado';}).length;}
 function paidCnt(loan){return getSched(loan).filter(function(p){return p.status==='pagado';}).length;}
 function totalPaid(loan){return getSched(loan).filter(function(p){return p.status==='pagado';}).reduce(function(s,p){return s+p.amount;},0);}
@@ -1355,6 +1405,60 @@ function saveEditPay(){
   renderDPay();
 }
 function saveOv(lid,idx,fields){var ov=DB.overrides;if(!ov[lid])ov[lid]={};if(!ov[lid][idx])ov[lid][idx]={};Object.assign(ov[lid][idx],fields);DB.overrides=ov;}
+
+// Calcula días y monto de atraso para un pago
+// No aplica a daily_meter (cobro diario ya incluye el cargo)
+function calcAtraso(loan, idx, p){
+  var ov=DB.overrides[loan.id]||{};
+  var o=ov[idx]||{};
+  // Si está detenido, usar días guardados
+  if(o.atraso_detenido){
+    var dias=o.atraso_dias||0;
+    return {dias:dias, monto:dias*50, detenido:true};
+  }
+  // No aplica a daily_meter
+  if(loan.frecuencia==='daily_meter') return {dias:0, monto:0, detenido:false};
+  // Solo si está vencido (fecha de pago < hoy)
+  var today=new Date(); today.setHours(0,0,0,0);
+  var due=new Date(p.date+'T12:00:00');
+  if(due>=today) return {dias:0, monto:0, detenido:false};
+  // días de atraso = días desde la fecha de pago hasta hoy (día 1 = día siguiente al vencimiento)
+  var diasAuto=Math.floor((today-due)/86400000);
+  // Si hay override manual de días
+  var dias=o.atraso_dias!==undefined?o.atraso_dias:diasAuto;
+  return {dias:dias, monto:dias*50, detenido:false};
+}
+
+
+// ============================================================
+// ATRASO
+// ============================================================
+function saveAtrasoOverride(lid,idx,dias){
+  if(isNaN(dias)||dias<0) return;
+  saveOv(lid,idx,{atraso_dias:dias});
+  refreshDetailHeader();
+  renderDPay();
+}
+function toggleAtrasoStop(lid,idx){
+  var ov=DB.overrides[lid]||{};
+  var o=ov[idx]||{};
+  var detenido=!o.atraso_detenido;
+  // Si se detiene, guardar los días actuales calculados
+  if(detenido){
+    var loan=DB.loans.find(function(l){return String(l.id)===String(lid);});
+    var sched=getSched(loan);
+    var p=sched[idx];
+    var today=new Date();today.setHours(0,0,0,0);
+    var due=new Date(p.date+'T12:00:00');
+    var diasAuto=due<today?Math.floor((today-due)/86400000):0;
+    var dias=o.atraso_dias!==undefined?o.atraso_dias:diasAuto;
+    saveOv(lid,idx,{atraso_detenido:true,atraso_dias:dias});
+  }else{
+    saveOv(lid,idx,{atraso_detenido:false,atraso_dias:undefined});
+  }
+  refreshDetailHeader();
+  renderDPay();
+}
 
 function deletePay(lid,idx){
   if(!confirm('¿Eliminar este pago? Quedará registrado en el historial como eliminado.'))return;
