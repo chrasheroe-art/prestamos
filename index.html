@@ -272,7 +272,8 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <div class="fg">
       <label class="fl">Tipo de pago</label>
       <select class="fi fsel" id="pr-freq" onchange="propFreqChange()">
-        <option value="daily">Diario ($15 por cada $500)</option>
+        <option value="daily_meter">Diario corriente ($15 x $500/día)</option>
+        <option value="daily_fixed">Diario fijo (% interés)</option>
         <option value="weekly">Semanal</option>
         <option value="biweekly" selected>Quincenal</option>
         <option value="monthly">Mensual</option>
@@ -310,15 +311,33 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <div class="fg">
       <label class="fl">Tipo de pago</label>
       <select class="fi fsel" id="l-freq" onchange="loanFreqChange()">
-        <option value="daily">Diario</option>
+        <option value="daily_meter">Diario corriente ($15 x $500 por día)</option>
+        <option value="daily_fixed">Diario fijo (% interés + fecha de pago)</option>
         <option value="weekly">Semanal</option>
         <option value="biweekly" selected>Quincenal</option>
         <option value="monthly">Mensual</option>
       </select>
     </div>
+
+    <!-- daily_meter info box -->
+    <div id="l-meter-wrap" style="display:none;">
+      <div style="background:var(--orange-light);border-radius:var(--rs);padding:12px 14px;margin-bottom:12px;font-size:13px;color:var(--orange);line-height:1.8;">
+        <strong>Préstamo por día corriente</strong><br>
+        Se cobran $15 por cada $500 prestados, empezando desde el día del préstamo (día 1).<br>
+        El interés acumula cada día hasta que el cliente pague.<br>
+        No hay fecha límite fija — el saldo sube $<span id="l-meter-daily">0</span> por día.
+      </div>
+      <div class="fg"><label class="fl">Fecha de inicio del préstamo (día 1) *</label><input class="fi" id="l-meter-start" type="date" oninput="calcLoanPreview()"></div>
+      <div class="fg"><label class="fl">Fecha en que se registra el cobro (opcional)</label><input class="fi" id="l-meter-end" type="date" oninput="calcLoanPreview()"></div>
+      <div id="l-meter-days-info" style="font-size:12px;color:var(--blue);padding:8px 12px;background:var(--blue-light);border-radius:var(--rs);margin-bottom:10px;display:none;"></div>
+    </div>
+
+    <!-- daily_fixed / weekly / biweekly / monthly fields -->
     <div id="l-pct-wrap" class="fg"><label class="fl">Interés (%)</label><input class="fi" id="l-interest" type="number" placeholder="0" min="0" value="10" oninput="calcLoanPreview()"></div>
     <div class="fg"><label class="fl">Número de pagos</label><input class="fi" id="l-npay" type="number" placeholder="1" min="1" value="4" oninput="calcLoanPreview();buildDailyDates()"></div>
-    <div class="fg"><label class="fl">Fecha del primer pago *</label><input class="fi" id="l-firstdate" type="date" oninput="calcLoanPreview();buildDailyDates()"></div>
+    <div class="fg" id="l-firstdate-wrap"><label class="fl">Fecha del primer pago *</label><input class="fi" id="l-firstdate" type="date" oninput="calcLoanPreview();buildDailyDates()"></div>
+
+    <!-- daily_fixed per-payment dates -->
     <div id="l-daily-dates-wrap" style="display:none;">
       <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Fecha de cada pago</div>
       <div id="l-daily-dates"></div>
@@ -423,20 +442,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <button class="btn-p" onclick="saveSettings()">Guardar</button>
     <div class="divider"></div>
     <div class="section-title">💾 Respaldo de datos</div>
-    <div class="info-box">Si cambias de celular o borras el navegador perderás tus datos. Conecta Google Drive para respaldo automático, o exporta manualmente.</div>
-
-    <div style="background:var(--purple-light);border-radius:var(--rs);padding:14px;margin-bottom:12px;">
-      <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:8px;">☁️ Respaldo automático en Google Drive</div>
-      <div id="gd-status" style="font-size:12px;color:var(--muted);margin-bottom:10px;">⚪ No conectado</div>
-      <div class="fg" style="margin-bottom:8px;">
-        <label class="fl" style="color:var(--purple);">Google OAuth Client ID</label>
-        <input class="fi" id="cfg-drive-cid" type="text" placeholder="xxx.apps.googleusercontent.com" style="font-size:12px;">
-      </div>
-      <button class="btn-p" style="background:var(--purple);font-size:13px;padding:11px;" onclick="connectDrive()">🔗 Conectar Google Drive</button>
-      <div style="font-size:11px;color:var(--purple);margin-top:8px;line-height:1.6;">
-        Para obtener tu Client ID: Google Cloud Console → APIs → Credenciales → OAuth 2.0 → Crear credencial → Aplicación web. Agrega este dominio en "Orígenes autorizados".
-      </div>
-    </div>
+    <div class="info-box">Si cambias de celular o borras el navegador perderás tus datos. Exporta tu respaldo regularmente y guárdalo en Google Drive o WhatsApp.</div>
 
     <button class="btn-g" onclick="exportData()">📤 Exportar respaldo (.json)</button>
     <button class="btn-o" style="background:var(--green-light);color:var(--green);border:none;font-weight:600;" onclick="sendBackupWA()">📱 Enviar respaldo por WhatsApp</button>
@@ -478,7 +484,7 @@ function daysBetween(a,b){return Math.round((parseDate(b)-parseDate(a))/86400000
 function calcDateFromFirst(firstDate,freq,idx){
   if(!firstDate)return todayStr();
   var d=parseDate(firstDate);
-  if(freq==='daily'){d.setDate(d.getDate()+idx);return dateStr(d);}
+  if(freq==='daily'||freq==='daily_fixed'||freq==='daily_meter'){d.setDate(d.getDate()+idx);return dateStr(d);}
   if(freq==='weekly'){d.setDate(d.getDate()+idx*7);return dateStr(d);}
   if(freq==='biweekly'){
     for(var k=0;k<idx;k++){
@@ -502,7 +508,7 @@ function calcDateFromFirst(firstDate,freq,idx){
 // ============================================================
 function suggestFirstDate(freq){
   var d=new Date();d.setHours(12);
-  if(freq==='daily')return dateStr(d);
+  if(freq==='daily'||freq==='daily_meter'||freq==='daily_fixed')return dateStr(d);
   if(freq==='weekly'){
     // next Sunday
     var dow=d.getDay();var dts=dow===0?7:(7-dow);
@@ -563,7 +569,8 @@ function computePriceBreakdown(monto,pct,freq,n,firstDate){
 // ============================================================
 function amountsForLoan(loan){
   var n=loan.num_pagos||1;
-  // ALL frequencies now use capital+interest model (daily no longer hardcodes $15/$500)
+  // daily_meter: single payment, amount already in override
+  if(loan.frecuencia==='daily_meter'){return [loan.monto+(loan.daily_charge||0)];}
   var total=(loan.monto||0)*(1+(loan.interes||0)/100)+(loan.proration||0);
   var perPay=Math.floor((total/n)*100)/100;
   var arr=[];
@@ -838,12 +845,21 @@ function nextDueRaw(loans){var dates=[];loans.forEach(function(l){getSched(l).fo
 // ============================================================
 function loanFreqChange(){
   var freq=document.getElementById('l-freq').value;
-  // Daily now supports interest % too
-  document.getElementById('l-pct-wrap').style.display='';
-  document.getElementById('l-firstdate').value=suggestFirstDate(freq);
-  // Show/hide multi-date container for daily
-  var mdWrap=document.getElementById('l-daily-dates-wrap');
-  if(mdWrap) mdWrap.style.display=freq==='daily'?'':'none';
+  var isMeter=(freq==='daily_meter');
+  var isFixed=(freq==='daily_fixed');
+  // Show/hide meter block
+  document.getElementById('l-meter-wrap').style.display=isMeter?'':'none';
+  // Show/hide standard fields
+  document.getElementById('l-pct-wrap').style.display=isMeter?'none':'';
+  document.getElementById('l-firstdate-wrap').style.display=isMeter?'none':'';
+  document.getElementById('l-daily-dates-wrap').style.display='none';
+  // For daily_fixed show per-payment dates
+  if(isFixed) buildDailyDates();
+  if(!isMeter) document.getElementById('l-firstdate').value=suggestFirstDate(freq==='daily_fixed'?'daily':freq);
+  if(isMeter){
+    document.getElementById('l-meter-start').value=todayStr();
+    document.getElementById('l-meter-end').value='';
+  }
   calcLoanPreview();
 }
 function openNewLoan(){
@@ -857,8 +873,10 @@ function openNewLoan(){
   document.getElementById('l-freq').value='biweekly';
   document.getElementById('l-concept').value='';
   document.getElementById('l-pct-wrap').style.display='';
+  document.getElementById('l-meter-wrap').style.display='none';
+  document.getElementById('l-firstdate-wrap').style.display='';
+  document.getElementById('l-daily-dates-wrap').style.display='none';
   document.getElementById('l-firstdate').value=suggestFirstDate('biweekly');
-  buildDailyDates();
   calcLoanPreview();
   openModal('m-loan');
 }
@@ -867,16 +885,16 @@ function buildDailyDates(){
   var wrap=document.getElementById('l-daily-dates-wrap');
   var container=document.getElementById('l-daily-dates');
   if(!wrap||!container)return;
-  if(freq!=='daily'){wrap.style.display='none';return;}
+  if(freq!=='daily_fixed'){wrap.style.display='none';return;}
   var n=parseInt(document.getElementById('l-npay').value)||1;
   var fd=document.getElementById('l-firstdate').value;
   wrap.style.display='';
   var html='';
   for(var i=0;i<n;i++){
     var def=fd?calcDateFromFirst(fd,'daily',i):'';
-    html+='<div class="fg" style="margin-bottom:8px;">'
-      +'<label class="fl" style="font-size:10px;">Pago '+(i+1)+'</label>'
-      +'<input class="fi" id="l-dd-'+i+'" type="date" value="'+def+'" style="padding:9px 12px;font-size:13px;">'
+    html+='<div class="fg" style="margin-bottom:8px;display:flex;align-items:center;gap:10px;">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--blue);min-width:56px;">Pago '+(i+1)+'</div>'
+      +'<input class="fi" id="l-dd-'+i+'" type="date" value="'+def+'" style="padding:9px 12px;font-size:13px;flex:1;">'
       +'</div>';
   }
   container.innerHTML=html;
@@ -888,11 +906,34 @@ function calcLoanPreview(){
   var freq=document.getElementById('l-freq').value;
   var fd=document.getElementById('l-firstdate').value;
   if(!amt){document.getElementById('l-prev').textContent='Ingresa el monto';return;}
-  var res=computePriceBreakdown(amt,pct,freq,n,fd);
+  if(freq==='daily_meter'){
+    var mAmt=parseFloat(document.getElementById('l-amount').value)||0;
+    var mStart=document.getElementById('l-meter-start').value;
+    var mEnd=document.getElementById('l-meter-end').value;
+    var dailyCharge=Math.round(mAmt/500)*15;
+    document.getElementById('l-meter-daily').textContent=dailyCharge.toLocaleString('es-MX');
+    var txt='Capital: '+fmt(mAmt)+'\nCobro por día: '+fmt(dailyCharge)+' ($15 x cada $500)';
+    if(mStart&&mEnd&&mEnd>=mStart){
+      var dias=daysBetween(mStart,mEnd)+1; // dia 1 = dia del prestamo
+      var interesTotal=dailyCharge*dias;
+      var total=mAmt+interesTotal;
+      txt+='\nDías (día 1='+fmtDate(mStart)+' → '+fmtDate(mEnd)+'): '+dias;
+      txt+='\nInterés acumulado: '+fmt(interesTotal);
+      txt+='\nTotal a cobrar: '+fmt(total);
+      document.getElementById('l-meter-days-info').style.display='';
+      document.getElementById('l-meter-days-info').textContent='Día 1: '+fmtDate(mStart)+' → '+fmtDate(mEnd)+' = '+dias+' días · Interés: '+fmt(interesTotal)+' · Total: '+fmt(total);
+    }else{
+      document.getElementById('l-meter-days-info').style.display='none';
+    }
+    document.getElementById('l-prev').textContent=txt;
+    return;
+  }
+  var res=computePriceBreakdown(amt,pct,freq==='daily_fixed'?'daily':freq,n,fd);
   var interestTotal=Math.round((res.interest+res.proration)*100)/100;
   var txt='Capital: '+fmt(res.base);
-  if(freq==='daily'){
-    txt+='\nInterés ('+pct+'% por '+n+' día'+(n>1?'s':'')+'): '+fmt(interestTotal);
+  if(freq==='daily_fixed'){
+    var totalDias=n; // each payment = one day block
+    txt+='\nInterés ('+pct+'%): '+fmt(interestTotal);
     txt+='\nTotal a cobrar: '+fmt(res.total);
     txt+='\nPago por cuota: '+fmt(res.total/n);
   }else{
@@ -906,27 +947,59 @@ function saveLoan(){
   var cid=document.getElementById('l-client').value;
   var con=document.getElementById('l-concept').value.trim();
   var amt=parseFloat(document.getElementById('l-amount').value);
-  var pct=parseFloat(document.getElementById('l-interest').value)||0;
-  var n=parseInt(document.getElementById('l-npay').value)||1;
   var freq=document.getElementById('l-freq').value;
-  var fd=document.getElementById('l-firstdate').value;
-  if(!cid||!con||!amt||!fd){showNotif('Completa los campos obligatorios');return;}
-  var res=computePriceBreakdown(amt,pct,freq,n,fd);
+  if(!cid||!con||!amt){showNotif('Completa los campos obligatorios');return;}
+
   var loanId='l'+Date.now();
   var loans=DB.loans;
-  loans.push({id:loanId,cliente_id:cid,concepto:con,monto:amt,interes:pct,num_pagos:n,frecuencia:freq,first_date:fd,proration:res.proration,fecha_creacion:todayStr()});
-  DB.loans=loans;
-  // For daily loans: save per-payment dates as overrides
-  if(freq==='daily'){
-    var res2=computePriceBreakdown(amt,pct,freq,n,fd);
-    var perPay=Math.floor((res2.total/n)*100)/100;
+
+  if(freq==='daily_meter'){
+    // Open-ended daily meter loan
+    var mStart=document.getElementById('l-meter-start').value;
+    if(!mStart){showNotif('Selecciona la fecha de inicio del préstamo');return;}
+    var dailyCharge=Math.round(amt/500)*15;
+    var mEnd=document.getElementById('l-meter-end').value;
+    var dias=mEnd&&mEnd>=mStart?daysBetween(mStart,mEnd)+1:1;
+    var interesAcum=dailyCharge*dias;
+    var total=amt+interesAcum;
+    loans.push({id:loanId,cliente_id:cid,concepto:con,monto:amt,interes:0,num_pagos:1,
+      frecuencia:'daily_meter',first_date:mStart,meter_start:mStart,meter_end:mEnd||'',
+      daily_charge:dailyCharge,proration:0,fecha_creacion:todayStr()});
+    DB.loans=loans;
+    // Save single payment override with computed total (can be updated later)
+    var payDate=mEnd||mStart;
+    saveOv(loanId,0,{date:payDate,amount:total,concept:con+' ('+dias+' días × '+fmt(dailyCharge)+')'});
+
+  }else if(freq==='daily_fixed'){
+    // Fixed daily loan: capital + % interest, N payments with custom dates
+    var pct=parseFloat(document.getElementById('l-interest').value)||0;
+    var n=parseInt(document.getElementById('l-npay').value)||1;
+    var fd=document.getElementById('l-firstdate').value;
+    if(!fd){showNotif('Selecciona la fecha del primer pago');return;}
+    var res=computePriceBreakdown(amt,pct,'daily',n,fd);
+    loans.push({id:loanId,cliente_id:cid,concepto:con,monto:amt,interes:pct,num_pagos:n,
+      frecuencia:'daily_fixed',first_date:fd,proration:res.proration,fecha_creacion:todayStr()});
+    DB.loans=loans;
+    var perPay=Math.floor((res.total/n)*100)/100;
     for(var i=0;i<n;i++){
       var inp=document.getElementById('l-dd-'+i);
-      var dv=inp?inp.value:calcDateFromFirst(fd,'daily',i);
-      var amt2=i<n-1?perPay:Math.round((res2.total-perPay*(n-1))*100)/100;
-      saveOv(loanId,i,{date:dv,amount:amt2});
+      var dv=inp&&inp.value?inp.value:calcDateFromFirst(fd,'daily',i);
+      var a2=i<n-1?perPay:Math.round((res.total-perPay*(n-1))*100)/100;
+      saveOv(loanId,i,{date:dv,amount:a2});
     }
+
+  }else{
+    // Standard weekly/biweekly/monthly
+    var pct2=parseFloat(document.getElementById('l-interest').value)||0;
+    var n2=parseInt(document.getElementById('l-npay').value)||1;
+    var fd2=document.getElementById('l-firstdate').value;
+    if(!fd2){showNotif('Selecciona la fecha del primer pago');return;}
+    var res2=computePriceBreakdown(amt,pct2,freq,n2,fd2);
+    loans.push({id:loanId,cliente_id:cid,concepto:con,monto:amt,interes:pct2,num_pagos:n2,
+      frecuencia:freq,first_date:fd2,proration:res2.proration,fecha_creacion:todayStr()});
+    DB.loans=loans;
   }
+
   autoBackup();
   showNotif('✓ Préstamo creado');
   closeModal('m-loan');
@@ -1185,7 +1258,13 @@ function openProp(){
   document.getElementById('prop-view').classList.add('open');
 }
 function closeProp(){document.getElementById('prop-view').classList.remove('open');document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('active');});document.getElementById('nav-deudas').classList.add('active');}
-function propFreqChange(){var freq=document.getElementById('pr-freq').value;document.getElementById('pr-pct-wrap').style.display=freq==='daily'?'none':'';document.getElementById('pr-firstdate').value=suggestFirstDate(freq);calcProp();}
+function propFreqChange(){
+  var freq=document.getElementById('pr-freq').value;
+  document.getElementById('pr-pct-wrap').style.display=freq==='daily_meter'?'none':'';
+  var sfFreq=freq==='daily_meter'||freq==='daily_fixed'?'daily':freq;
+  document.getElementById('pr-firstdate').value=suggestFirstDate(sfFreq);
+  calcProp();
+}
 
 function calcProp(){
   var amt=parseFloat(document.getElementById('pr-amount').value)||0;
@@ -1197,26 +1276,53 @@ function calcProp(){
   if(!amt){result.style.display='none';return;}
   var res=computePriceBreakdown(amt,pct,freq,n,fd);
   var amounts=[];
-  var perPay=Math.floor((res.total/n)*100)/100;for(var j=0;j<n-1;j++)amounts.push(perPay);amounts.push(Math.round((res.total-perPay*(n-1))*100)/100);
+  if(freq==='daily_meter'){
+    var dc=Math.round(amt/500)*15;
+    var days=n||1; // n = number of days in propuesta for meter
+    for(var di=0;di<days;di++) amounts.push(dc);
+  }else{
+    var perPay=Math.floor((res.total/n)*100)/100;for(var j=0;j<n-1;j++)amounts.push(perPay);amounts.push(Math.round((res.total-perPay*(n-1))*100)/100);
+  }
   var dates=[];for(var k=0;k<n;k++)dates.push(calcDateFromFirst(fd,freq,k));
 
-  document.getElementById('pr-total').textContent=fmt(res.total);
+  document.getElementById('pr-total').textContent=freq==='daily_meter'?fmt(amt+(Math.round(amt/500)*15)*(n||1)):fmt(res.total);
 
   // Show Capital, Interés (merged with proration), Total — NO percentages, NO proration label
-  var interestBase=Math.round(res.interest*100)/100;
-  var rows='<div class="prop-row"><span class="prop-row-lbl">Capital</span><span class="prop-row-val">'+fmt(res.base)+'</span></div>';
-  if(freq==='daily'){rows+='<div class="prop-row"><span class="prop-row-lbl">Interés</span><span class="prop-row-val">'+fmt(res.interest)+'</span></div>';}
-  else{
+  var rows='';
+  if(freq==='daily_meter'){
+    var dc=Math.round(amt/500)*15;
+    var mDays=n||1;
+    rows='<div class="prop-row"><span class="prop-row-lbl">Capital</span><span class="prop-row-val">'+fmt(amt)+'</span></div>'
+      +'<div class="prop-row" style="background:var(--orange-light);border-radius:6px;padding:6px 10px;margin:4px 0;">'
+      +'<span class="prop-row-lbl" style="color:var(--orange);">Cobro diario ('+fmt(dc)+' x día)</span>'
+      +'<span class="prop-row-val" style="color:var(--orange);">×'+mDays+' días = '+fmt(dc*mDays)+'</span></div>'
+      +'<div class="prop-row" style="font-size:14px;font-weight:700;border-top:2px solid var(--border);">'
+      +'<span class="prop-row-lbl">Total si paga en '+mDays+' día'+(mDays>1?'s':'')+'</span><span class="prop-row-val">'+fmt(amt+dc*mDays)+'</span></div>';
+  }else{
+    var interestBase=Math.round(res.interest*100)/100;
+    rows='<div class="prop-row"><span class="prop-row-lbl">Capital</span><span class="prop-row-val">'+fmt(res.base)+'</span></div>';
     rows+='<div class="prop-row"><span class="prop-row-lbl">Interés</span><span class="prop-row-val">'+fmt(interestBase)+'</span></div>';
     if(res.proration>0.009){
       rows+='<div class="prop-row prop-row-proration"><span class="prop-row-lbl" style="color:var(--orange)">⚡ Prorrateo '+res.extraDays+' días extra</span><span class="prop-row-val" style="color:var(--orange)">+'+fmt(res.proration)+'</span></div>';
     }
+    rows+='<div class="prop-row" style="font-size:14px;font-weight:700;border-top:2px solid var(--border);"><span class="prop-row-lbl">Pago por cuota</span><span class="prop-row-val">'+fmt(res.total/n)+'</span></div>';
   }
-  rows+='<div class="prop-row" style="font-size:14px;font-weight:700;border-top:2px solid var(--border);"><span class="prop-row-lbl">Pago por cuota</span><span class="prop-row-val">'+fmt(res.total/n)+'</span></div>';
   document.getElementById('pr-rows').innerHTML=rows;
 
   var dhtml='';
-  dates.forEach(function(d,i){dhtml+='<div class="prop-date-item"><span class="pdi-num">'+(i+1)+'</span><span class="pdi-date">'+fmtDate(d)+'</span><span class="pdi-amt">'+fmt(amounts[i])+'</span></div>';});
+  if(freq==='daily_meter'){
+    var dc3=Math.round(amt/500)*15;
+    dhtml='<div class="prop-date-item" style="background:var(--orange-light);border-radius:var(--rs);padding:12px 14px;">'
+      +'<span style="font-size:13px;color:var(--orange);line-height:1.9;">'
+      +'<strong>Sin fecha límite fija.</strong><br>'
+      +'El interés corre desde el día 1 (día del préstamo).<br>'
+      +'Cobro: '+fmt(dc3)+' por día ('+fmt(amt)+'÷500 × $15).<br>'
+      +'Ejemplo de cuánto debe si paga en N días:<br>'
+      +(function(){var s='';for(var d=[1,3,5,7,10,15,30],i=0;i<d.length;i++)s+='→ '+d[i]+' día'+(d[i]>1?'s':'')+': '+fmt(amt+dc3*d[i])+'<br>';return s;})()
+      +'</span></div>';
+  }else{
+    dates.forEach(function(d,i){dhtml+='<div class="prop-date-item"><span class="pdi-num">'+(i+1)+'</span><span class="pdi-date">'+fmtDate(d)+'</span><span class="pdi-amt">'+fmt(amounts[i])+'</span></div>';});
+  }
   document.getElementById('pr-dates').innerHTML=dhtml;
   document.getElementById('pr-note').style.display='none';
 
@@ -1271,7 +1377,13 @@ function sendPropWA(){
   msg+='💰 Capital: '+fmt(res.base)+'\n';
   msg+='📈 Interés: '+fmt(interestTotal)+'\n';
   msg+='💵 Total a pagar: '+fmt(res.total)+'\n';
-  if(false){ // legacy daily block removed
+  if(freq==='daily_meter'){
+    var dc2=Math.round(amt/500)*15;
+    msg+='📅 Tipo: Diario corriente ($15 por cada $500)\n';
+    msg+='💵 Cobro por día: '+fmt(dc2)+'\n';
+    msg+='🔢 Número de días del ejemplo: '+n+'\n';
+    msg+='💳 Total si paga en '+n+' día'+(n>1?'s':'')+': '+fmt(amt+dc2*n)+'\n';
+    msg+='\n⚡ El interés sigue corriendo cada día hasta que pague.\n';
   }else{
     msg+='📅 Tipo de pago: '+{daily:'Diario',weekly:'Semanal',biweekly:'Quincenal',monthly:'Mensual'}[freq]+'\n';
     msg+='🔢 Número de pagos: '+n+'\n';
@@ -1542,15 +1654,20 @@ function openAlertModal(lid,idx,date){
   var cl=DB.clients.find(function(c){return String(c.id)===String(loan.cliente_id);});
   document.getElementById('al-lid').value=lid;
   document.getElementById('al-idx').value=idx;
-  document.getElementById('al-date').value=p.date;
+  document.getElementById('al-paydate').value=p.date;
   document.getElementById('al-header').innerHTML='👤 <strong>'+(cl?cl.nombre:'?')+'</strong> · Pago '+(idx+1)+' · Vence '+fmtDate(p.date);
   var existing=ALERTS[alertKey(lid,idx)];
   if(existing){
-    document.getElementById('al-when').value=existing.when||'dayBefore';
+    document.getElementById('al-alertdate').value=existing.alertdate||p.date;
+    document.getElementById('al-alerttime').value=existing.alerttime||'06:00';
     document.getElementById('al-how').value=existing.how||'notif';
     document.getElementById('al-delete-btn').style.display='';
   }else{
-    document.getElementById('al-when').value='dayBefore';
+    // Default: day before the payment at 6AM
+    var payD=parseDate(p.date);
+    payD.setDate(payD.getDate()-1);
+    document.getElementById('al-alertdate').value=dateStr(payD);
+    document.getElementById('al-alerttime').value='06:00';
     document.getElementById('al-how').value='notif';
     document.getElementById('al-delete-btn').style.display='none';
   }
@@ -1560,19 +1677,20 @@ function openAlertModal(lid,idx,date){
 function saveAlert(){
   var lid=document.getElementById('al-lid').value;
   var idx=parseInt(document.getElementById('al-idx').value);
-  var date=document.getElementById('al-date').value;
-  var when=document.getElementById('al-when').value;
+  var paydate=document.getElementById('al-paydate').value;
+  var alertdate=document.getElementById('al-alertdate').value;
+  var alerttime=document.getElementById('al-alerttime').value||'06:00';
   var how=document.getElementById('al-how').value;
+  if(!alertdate){showNotif('Selecciona la fecha de la alerta');return;}
   var key=alertKey(lid,idx);
-  ALERTS[key]={lid:lid,idx:idx,date:date,when:when,how:how,createdAt:todayStr()};
+  ALERTS[key]={lid:lid,idx:idx,date:paydate,alertdate:alertdate,alerttime:alerttime,how:how,createdAt:todayStr()};
   saveAlerts();
-  // Schedule browser notification if requested
   if(how==='notif'||how==='both'){
     requestNotifPermission(function(){
-      scheduleNotif(lid,idx,date,when);
+      scheduleNotifCustom(lid,idx,paydate,alertdate,alerttime);
     });
   }
-  showNotif('🔔 Alerta guardada para '+fmtDate(date));
+  showNotif('🔔 Alerta programada para '+fmtDate(alertdate)+' a las '+alerttime);
   closeModal('m-alert');
   renderDPay();
 }
@@ -1593,20 +1711,18 @@ function requestNotifPermission(cb){
   Notification.requestPermission().then(function(p){if(p==='granted')cb();else showNotif('Permiso de notificaciones denegado');});
 }
 
-function scheduleNotif(lid,idx,dateStr,when){
-  // Calculate trigger time
-  var payDate=parseDate(dateStr);
-  var triggerDate=new Date(payDate);
-  if(when==='dayBefore') triggerDate.setDate(triggerDate.getDate()-1);
-  triggerDate.setHours(6,0,0,0);
+function scheduleNotifCustom(lid,idx,paydate,alertdate,alerttime){
+  var parts=(alerttime||'06:00').split(':');
+  var h=parseInt(parts[0])||6, m=parseInt(parts[1])||0;
+  var triggerDate=parseDate(alertdate);
+  triggerDate.setHours(h,m,0,0);
   var now=new Date();
-  var delay=triggerDate-now;
-  if(delay<=0){showNotif('La fecha de alerta ya pasó');return;}
-  // Store scheduled notif in localStorage (re-checked on app open)
+  if(triggerDate<=now){showNotif('La fecha/hora de alerta ya pasó');return;}
   var notifs=JSON.parse(localStorage.getItem('pa_schnotifs')||'[]');
   notifs=notifs.filter(function(n){return n.key!==alertKey(lid,idx);});
-  notifs.push({key:alertKey(lid,idx),lid:lid,idx:idx,triggerTime:triggerDate.getTime(),dateStr:dateStr,fired:false});
+  notifs.push({key:alertKey(lid,idx),lid:lid,idx:idx,triggerTime:triggerDate.getTime(),dateStr:paydate,alertdate:alertdate,alerttime:alerttime,fired:false});
   localStorage.setItem('pa_schnotifs',JSON.stringify(notifs));
+  showNotif('✓ Alerta programada: '+fmtDate(alertdate)+' '+alerttime);
 }
 
 function checkScheduledNotifs(){
@@ -1713,25 +1829,26 @@ init();
     <div class="ep-info" id="al-header"></div>
     <input type="hidden" id="al-lid">
     <input type="hidden" id="al-idx">
-    <input type="hidden" id="al-date">
+    <input type="hidden" id="al-paydate">
     <div class="fg">
-      <label class="fl">¿Cuándo alertar?</label>
-      <select class="fi fsel" id="al-when">
-        <option value="dayBefore">Un día antes (a las 6AM)</option>
-        <option value="sameDay">El mismo día del pago (a las 6AM)</option>
-      </select>
+      <label class="fl">Fecha de la alerta</label>
+      <input class="fi" id="al-alertdate" type="date">
+      <div style="font-size:11px;color:var(--muted);margin-top:5px;">Selecciona el día en que quieres recibir el recordatorio</div>
+    </div>
+    <div class="fg">
+      <label class="fl">Hora de la alerta</label>
+      <input class="fi" id="al-alerttime" type="time" value="06:00">
     </div>
     <div class="fg">
       <label class="fl">¿Cómo?</label>
       <select class="fi fsel" id="al-how">
         <option value="notif">Notificación en pantalla</option>
-        <option value="wa">WA al cliente</option>
+        <option value="wa">WA a mí mismo (recordatorio)</option>
         <option value="both">Ambas</option>
       </select>
     </div>
-    <div id="al-wa-info" class="info-box" style="font-size:12px;line-height:1.7;">
-      <strong>Un día antes:</strong> La app te enviará un WA a ti mismo como recordatorio para que entres y envíes la alerta al cliente.<br>
-      <strong>El mismo día:</strong> Se programa una notificación en pantalla a las 6AM. El WA al cliente deberás enviarlo manualmente desde la app.
+    <div class="info-box" style="font-size:12px;line-height:1.7;">
+      La notificación aparecerá cuando abras la app en esa fecha/hora o después. El WA te llegará a ti como recordatorio para que envíes el cobro al cliente.
     </div>
     <button class="btn-p" onclick="saveAlert()">Guardar alerta</button>
     <button class="btn-d" id="al-delete-btn" onclick="deleteAlert()" style="display:none;">Eliminar alerta</button>
