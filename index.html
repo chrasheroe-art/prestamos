@@ -565,6 +565,14 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
         <label>Cliente</label>
         <select id="res-client" onchange="renderResumen()"><option value="">Todos</option></select>
       </div>
+      <div class="res-filter">
+        <label>Estado</label>
+        <select id="res-status" onchange="renderResumen()">
+          <option value="">Todos</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="pagado">Pagado</option>
+        </select>
+      </div>
     </div>
     <div id="res-table-wrap"></div>
     <div style="display:flex;gap:8px;margin-top:14px;">
@@ -1502,26 +1510,23 @@ function calcProp(){
   var freqLabels={daily_meter:'por día corriente',daily_fixed:'fijo',weekly:'semanal',biweekly:'quincenal',monthly:'mensual'};
   var freqLbl=freqLabels[freq]||freq;
   var rules='';
+  var clausulas='\n• El primer pago aplica en la primer semana o quincena inmediata\n• En caso de 1 pago, se cuentan los días a partir del día del préstamo\n• Se considera semana de L-D siendo domingo día de pago\n• Se considera quincena los días 15 y 30 ó 31 según calendario\n• Se considera mes el final del mes inmediato al préstamo (30 ó 31)\n• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n• No se realizará ajuste por pronto pago';
   if(isMeter){
     rules='📋 Condiciones del préstamo por día corriente:\n'
       +'• Se cobran $15 por cada $500, empezando el mismo día del préstamo (día 1)\n'
       +'• El interés corre cada día hasta que el cliente liquide\n'
-      +'• Pago: '+fmt(dc)+' por día\n'
-      +'• Penalización adicional por atraso: $50.00 por día\n'
-      +'• Sin ajuste por pronto pago';
+      +'• Pago: '+fmt(dc)+' por día'
+      +clausulas;
   }else if(isFixed){
     rules='📋 Condiciones del préstamo fijo:\n'
-      +'• Capital: '+fmt(amt)+'  ·  Interés: '+pct+'%\n'
-      +'• Total a pagar: '+fmt(res.total)+(fixedDays>1?' en '+fixedDays+' días':'')+'\n'
-      +'• Fecha de pago: '+(paydate?fmtDate(paydate):'por definir')+'\n'
-      +'• Penalización por atraso: $50.00 por día\n'
-      +'• Sin ajuste por pronto pago';
+      +'• Total a pagar: '+fmt(res.total)+(fixedDays>1?' en '+fixedDays+' día'+(fixedDays>1?'s':''):'')+'\n'
+      +'• Fecha de pago: '+(paydate?fmtDate(paydate):'por definir')
+      +clausulas;
   }else{
     var freqCond={weekly:'semanal (domingo)',biweekly:'quincenal (días 15 y 30/31)',monthly:'mensual (último día del mes)'}[freq]||freqLbl;
     rules='📋 Condiciones del préstamo:\n'
       +'• Pago '+freqCond+': '+fmt(res.total/n)+' × '+n+' pago'+(n>1?'s':'')+'\n'
-      +'• Penalización por atraso: $50.00 por día\n'
-      +'• Sin ajuste por pronto pago';
+      +clausulas.slice(1);
   }
   document.getElementById('pr-rules').style.whiteSpace='pre-line';
   document.getElementById('pr-rules').textContent=rules;
@@ -1566,19 +1571,25 @@ function sendPropWA(){
     msg+='\n📌 Condiciones:\n'
       +'• Cobro: $15 por cada $500 por día\n'
       +'• Día 1 = el mismo día del préstamo\n'
-      +'• Penalización adicional por atraso: $50.00 por día\n'
-      +'• Sin ajuste por pronto pago';
+      +'• El primer pago aplica en la primer semana o quincena inmediata\n'
+      +'• Se considera semana de L-D siendo domingo día de pago\n'
+      +'• Se considera quincena los días 15 y 30 ó 31 según calendario\n'
+      +'• Se considera mes el final del mes inmediato al préstamo (30 ó 31)\n'
+      +'• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n'
+      +'• No se realizará ajuste por pronto pago';
   }else if(isFixed){
-    var interestFixed=Math.round(res.interest*100)/100;
     msg='Buen día, envío la propuesta para un préstamo de '+fmt(amt)+' a pago fijo, quedo pendiente de confirmación.\n\n';
     msg+='📅 Tipo: Préstamo fijo\n';
-    msg+='💰 Capital: '+fmt(amt)+'\n';
-    msg+='📈 Interés ('+pct+'%): '+fmt(interestFixed)+'\n';
     msg+='💵 Total a pagar: '+fmt(res.total)+'\n';
     if(fd) msg+='📆 Fecha de pago: '+fmtDate(fd)+(fixedDays>1?' ('+fixedDays+' días)':'')+'\n';
     msg+='\n📌 Condiciones:\n'
-      +'• Penalización por atraso: $50.00 por día\n'
-      +'• Sin ajuste por pronto pago';
+      +'• El primer pago aplica en la primer semana o quincena inmediata\n'
+      +'• En caso de 1 pago, se cuentan los días a partir del día del préstamo\n'
+      +'• Se considera semana de L-D siendo domingo día de pago\n'
+      +'• Se considera quincena los días 15 y 30 ó 31 según calendario\n'
+      +'• Se considera mes el final del mes inmediato al préstamo (30 ó 31)\n'
+      +'• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n'
+      +'• No se realizará ajuste por pronto pago';
   }else{
     // Weekly / biweekly / monthly — req 8: only type, num payments, amount per payment
     var freqNombre={weekly:'Semanal',biweekly:'Quincenal',monthly:'Mensual'}[freq]||freq;
@@ -1596,8 +1607,13 @@ function sendPropWA(){
       }
     }
     msg+='\n📌 Condiciones:\n'
-      +'• Penalización por atraso: $50.00 por día\n'
-      +'• Sin ajuste por pronto pago';
+      +'• El primer pago aplica en la primer semana o quincena inmediata\n'
+      +'• En caso de 1 pago, se cuentan los días a partir del día del préstamo\n'
+      +'• Se considera semana de L-D siendo domingo día de pago\n'
+      +'• Se considera quincena los días 15 y 30 ó 31 según calendario\n'
+      +'• Se considera mes el final del mes inmediato al préstamo (30 ó 31)\n'
+      +'• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n'
+      +'• No se realizará ajuste por pronto pago';
   }
   window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
 }
@@ -2054,6 +2070,7 @@ function getResumenData(){
   var filterY=document.getElementById('res-year').value;
   var filterM=document.getElementById('res-month').value;
   var filterC=document.getElementById('res-client').value;
+  var filterStatus=document.getElementById('res-status')?document.getElementById('res-status').value:'';
   var loans=DB.loans;
   var rows=[];
   loans.forEach(function(l){
@@ -2063,6 +2080,12 @@ function getResumenData(){
     if(filterY&&y!==filterY) return;
     if(filterM&&m!==filterM) return;
     if(filterC&&String(l.cliente_id)!==String(filterC)) return;
+    // Calculate payment status for this loan
+    var sched=getSched(l);
+    var hasPending=sched.some(function(p){return p.status!=='pagado';});
+    var hasPaid=sched.some(function(p){return p.status==='pagado';});
+    var loanStatus=hasPending?'pendiente':'pagado';
+    if(filterStatus&&loanStatus!==filterStatus) return;
     var cl=DB.clients.find(function(c){return String(c.id)===String(l.cliente_id);});
     var nombre=cl?cl.nombre:'Sin nombre';
     var capital=l.monto||0;
@@ -2075,7 +2098,12 @@ function getResumenData(){
       else total=l.monto+(l.daily_charge||0);
     }
     var interes=Math.round((total-capital)*100)/100;
-    rows.push({fecha:fecha,y:y,m:m,nombre:nombre,capital:capital,interes:interes,total:total,concepto:l.concepto||'',freq:l.frecuencia||''});
+    // Calculate composite status
+    var sched2=getSched(l);
+    var allPaid=sched2.every(function(p){return p.status==='pagado';});
+    var anyPaid=sched2.some(function(p){return p.status==='pagado';});
+    var rowStatus=allPaid?'pagado':anyPaid?'parcial':'pendiente';
+    rows.push({fecha:fecha,y:y,m:m,nombre:nombre,capital:capital,interes:interes,total:total,concepto:l.concepto||'',freq:l.frecuencia||'',status:rowStatus,loanId:l.id});
   });
   rows.sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');});
   return rows;
@@ -2092,26 +2120,28 @@ function renderResumen(){
     html='<div class="empty"><div class="empty-ico">📋</div><div>Sin préstamos con estos filtros</div></div>';
   }else{
     html='<div style="overflow-x:auto;"><table class="res-table"><thead><tr>'
-      +'<th>Cliente</th><th>Año</th><th>Mes</th><th>Día</th><th>Capital</th><th>Interés</th><th>Total</th>'
+      +'<th>Cliente</th><th>Concepto</th><th>Fecha</th><th>Capital</th><th>Interés</th><th>Total</th><th>Estado</th>'
       +'</tr></thead><tbody>';
     rows.forEach(function(r){
-      var d=r.fecha?r.fecha.substring(8,10):'';
-      var mLbl=r.m?MESES[parseInt(r.m)]||r.m:'';
+      var fechaDisplay=r.fecha?fmtDate(r.fecha):'';
+      var statusColor=r.status==='pagado'?'var(--green)':r.status==='parcial'?'var(--orange)':'var(--muted)';
+      var statusLabel=r.status==='pagado'?'✅ Pagado':r.status==='parcial'?'🔄 Parcial':'⏳ Pendiente';
       html+='<tr>'
         +'<td>'+r.nombre+'</td>'
-        +'<td>'+r.y+'</td>'
-        +'<td>'+mLbl+'</td>'
-        +'<td>'+d+'</td>'
+        +'<td style="font-size:12px;color:var(--muted);">'+r.concepto+'</td>'
+        +'<td style="font-size:12px;">'+fechaDisplay+'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;">'+fmt(r.capital)+'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;color:var(--green);">'+fmt(r.interes)+'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;font-weight:700;">'+fmt(r.total)+'</td>'
+        +'<td style="text-align:center;font-size:11px;color:'+statusColor+';">'+statusLabel+'</td>'
         +'</tr>';
     });
     html+='<tr class="res-total-row">'
-      +'<td colspan="4" style="text-align:right;font-size:12px;">TOTALES</td>'
+      +'<td colspan="3" style="text-align:right;font-size:12px;">TOTALES</td>'
       +'<td style="text-align:right;font-family:DM Mono,monospace;">'+fmt(totalCap)+'</td>'
       +'<td style="text-align:right;font-family:DM Mono,monospace;color:var(--green);">'+fmt(totalInt)+'</td>'
       +'<td style="text-align:right;font-family:DM Mono,monospace;">'+fmt(totalTot)+'</td>'
+      +'<td></td>'
       +'</tr>';
     html+='</tbody></table></div>';
   }
