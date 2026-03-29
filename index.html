@@ -2148,5 +2148,60 @@ init();
   </div>
 </div>
 
+
+<!-- MODAL: ALERTA DE PAGO -->
+<div class="mbg" id="m-alert">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <button class="xbtn" onclick="closeModal('m-alert')">✕</button>
+    <div class="mtitle">🔔 Configurar alerta</div>
+    <div class="ep-info" id="al-header"></div>
+    <input type="hidden" id="al-lid">
+    <input type="hidden" id="al-idx">
+    <input type="hidden" id="al-paydate">
+    <div class="fg">
+      <label class="fl">Fecha de la alerta</label>
+      <input class="fi" id="al-alertdate" type="date">
+    </div>
+    <div class="fg">
+      <label class="fl">Hora de la alerta</label>
+      <input class="fi" id="al-alerttime" type="time" value="06:00">
+    </div>
+    <div class="fg">
+      <label class="fl">¿Cómo alertar?</label>
+      <select class="fi fsel" id="al-how">
+        <option value="notif">🔔 Notificación en pantalla</option>
+        <option value="wa">📱 WhatsApp al cliente</option>
+        <option value="both">📱🔔 Ambas (WA + notificación)</option>
+        <option value="selfwa">📲 WA a mí mismo (recordatorio)</option>
+      </select>
+    </div>
+    <div class="info-box" style="font-size:12px;line-height:1.8;">
+      📅 Elige cualquier fecha y hora para la alerta.<br>
+      🔔 <strong>Notificación:</strong> aparece en pantalla si la app está abierta o en segundo plano.<br>
+      📱 <strong>WA al cliente:</strong> abre WhatsApp con el mensaje listo.<br>
+      📲 <strong>WA a mí mismo:</strong> te manda un recordatorio a tu número para que entres a la app.
+    </div>
+    <button class="btn-p" onclick="saveAlert()">💾 Guardar alerta</button>
+    <button class="btn-d" id="al-delete-btn" onclick="deleteAlert()" style="display:none;">🗑 Eliminar alerta</button>
+    <button class="btn-o" onclick="closeModal('m-alert')">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: BORRAR HISTORIAL -->
+<div class="mbg" id="m-del-hist">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <button class="xbtn" onclick="closeModal('m-del-hist')">✕</button>
+    <div class="mtitle">🗑 Borrar registro</div>
+    <div class="ep-info" id="dh-info"></div>
+    <input type="hidden" id="dh-pid">
+    <div style="font-size:14px;color:var(--text);margin-bottom:20px;">¿Qué deseas hacer con este registro?</div>
+    <button class="btn-p" style="background:var(--orange);" onclick="restoreHistEntry()">↩ Restaurar — regresar a pendiente</button>
+    <button class="btn-d" onclick="permanentDeleteHist()">🗑 Eliminar permanentemente</button>
+    <button class="btn-o" onclick="closeModal('m-del-hist')">Cancelar</button>
+  </div>
+</div>
+
 </body>
 </html>
