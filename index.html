@@ -868,10 +868,14 @@ function renderDPay(){
         var loan_n=loan.num_pagos||1;
         var pay_cap=Math.round((loan.monto||0)/loan_n*100)/100;
         var pay_int=Math.round(Math.max(0,p.amount-pay_cap)*100)/100;
-        // Only show breakdown if there is real interest (> $0)
+        // Mostrar siempre el desglose capital + interés
         var breakdownHtml='';
-        if(pay_int>0.009){
-          breakdownHtml='<div style="font-size:10px;color:var(--muted);margin-top:3px;font-family:DM Mono,monospace;white-space:nowrap;">'+fmt(pay_cap)+' + '+fmt(pay_int)+'</div>';
+        if(p.amount>0.009){
+          if(pay_int>0.009){
+            breakdownHtml='<div style="font-size:10px;color:var(--muted);margin-top:3px;font-family:DM Mono,monospace;white-space:nowrap;">'+fmt(pay_cap)+' <span style="color:var(--green);">+ '+fmt(pay_int)+'</span></div>';
+          } else {
+            breakdownHtml='<div style="font-size:10px;color:var(--muted);margin-top:3px;font-family:DM Mono,monospace;">Capital: '+fmt(pay_cap)+'</div>';
+          }
         }
         var amtHtml=isPartial
           ?'<div class="pi-amt orange" style="font-size:12px;line-height:1.3;text-align:right;">'+fmt(restante)+'<br><span style="color:var(--muted);font-size:10px;">de '+fmt(p.amount)+'</span>'+breakdownHtml+'</div>'
@@ -2106,31 +2110,34 @@ function getResumenData(){
   var loans=DB.loans;
   var rows=[];
   loans.forEach(function(l){
-    var fecha=l.fecha_creacion||l.first_date||'';
-    var y=fecha.substring(0,4);
-    var m=fecha.substring(5,7);
-    if(filterY&&y!==filterY) return;
-    if(filterM&&m!==filterM) return;
     if(filterC&&String(l.cliente_id)!==String(filterC)) return;
-    // Calculate payment status for this loan
-    var sched=getSched(l);
-    var hasPending=sched.some(function(p){return p.status!=='pagado';});
-    var hasPaid=sched.some(function(p){return p.status==='pagado';});
-    var loanStatus=hasPending?'pendiente':'pagado';
-    if(filterStatus&&loanStatus!==filterStatus) return;
     var cl=DB.clients.find(function(c){return String(c.id)===String(l.cliente_id);});
     var nombre=cl?cl.nombre:'Sin nombre';
-    var capital=l.monto||0;
-    // Use real scheduled amounts (respects overrides & edits)
-    var sched_r=getSched(l);
-    var total=Math.round(sched_r.reduce(function(s,p){return s+p.amount;},0)*100)/100;
-    var interes=Math.round((total-capital)*100)/100;
-    // Calculate composite status
-    var sched2=getSched(l);
-    var allPaid=sched2.every(function(p){return p.status==='pagado';});
-    var anyPaid=sched2.some(function(p){return p.status==='pagado';});
-    var rowStatus=allPaid?'pagado':anyPaid?'parcial':'pendiente';
-    rows.push({fecha:fecha,y:y,m:m,nombre:nombre,capital:capital,interes:interes,total:total,concepto:l.concepto||'',freq:l.frecuencia||'',status:rowStatus,loanId:l.id});
+    var loan_n=l.num_pagos||1;
+    var pay_cap=Math.round((l.monto||0)/loan_n*100)/100;
+    var sched=getSched(l);
+    sched.forEach(function(p,pi){
+      var fecha=p.date||'';
+      var y=fecha.substring(0,4);
+      var m=fecha.substring(5,7);
+      if(filterY&&y!==filterY) return;
+      if(filterM&&m!==filterM) return;
+      var pStatus=p.status||'pendiente';
+      if(filterStatus&&pStatus!==filterStatus) return;
+      var pay_int=Math.round(Math.max(0,p.amount-pay_cap)*100)/100;
+      rows.push({
+        fecha:fecha,y:y,m:m,
+        nombre:nombre,
+        concepto:l.concepto||'',
+        capital:pay_cap,
+        interes:pay_int,
+        total:p.amount,
+        status:pStatus,
+        payNum:pi+1,
+        totalPays:sched.length,
+        loanId:l.id
+      });
+    });
   });
   rows.sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');});
   return rows;
@@ -2141,21 +2148,22 @@ function renderResumen(){
   var rows=getResumenData();
   var totalCap=0,totalInt=0,totalTot=0;
   rows.forEach(function(r){totalCap+=r.capital;totalInt+=r.interes;totalTot+=r.total;});
-  document.getElementById('res-subtitle').textContent=rows.length+' préstamo'+(rows.length!==1?'s':'');
+  document.getElementById('res-subtitle').textContent=rows.length+' pago'+(rows.length!==1?'s':'');
   var html='';
   if(!rows.length){
-    html='<div class="empty"><div class="empty-ico">📋</div><div>Sin préstamos con estos filtros</div></div>';
+    html='<div class="empty"><div class="empty-ico">📋</div><div>Sin pagos con estos filtros</div></div>';
   }else{
     html='<div style="overflow-x:auto;"><table class="res-table"><thead><tr>'
-      +'<th>Cliente</th><th>Concepto</th><th>Fecha</th><th>Capital</th><th>Interés</th><th>Total</th><th>Estado</th><th></th>'
+      +'<th>Cliente</th><th>Concepto</th><th>Fecha pago</th><th>Capital</th><th>Interés</th><th>Total</th><th>Estado</th><th></th>'
       +'</tr></thead><tbody>';
     rows.forEach(function(r){
       var fechaDisplay=r.fecha?fmtDate(r.fecha):'';
       var statusColor=r.status==='pagado'?'var(--green)':r.status==='parcial'?'var(--orange)':'var(--muted)';
       var statusLabel=r.status==='pagado'?'✅ Pagado':r.status==='parcial'?'🔄 Parcial':'⏳ Pendiente';
+      var payLabel=r.totalPays>1?' ('+r.payNum+'/'+r.totalPays+')':'';
       html+='<tr>'
         +'<td>'+r.nombre+'</td>'
-        +'<td style="font-size:12px;color:var(--muted);">'+r.concepto+'</td>'
+        +'<td style="font-size:12px;color:var(--muted);">'+r.concepto+'<span style="color:var(--muted);font-size:10px;">'+payLabel+'</span></td>'
         +'<td style="font-size:12px;">'+fechaDisplay+'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;">'+fmt(r.capital)+'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;color:var(--green);">'+fmt(r.interes)+'</td>'
