@@ -44,7 +44,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 
 /* SUMMARY */
 .summary{background:var(--surface);margin:14px;border-radius:var(--r);padding:18px;border:1px solid var(--border);}
-.summary-amt{font-size:33px;font-weight:700;letter-spacing:-1px;color:var(--blue);font-family:'DM Mono',monospace;}
+.summary-amt{font-size:33px;font-weight:700;letter-spacing:-1px;color:var(--blue);font-family:DM Mono,monospace;}
 .summary-lbl{font-size:12px;color:var(--muted);margin-top:3px;}
 .badges{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;}
 .badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;}
@@ -69,7 +69,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 .cd.urg{color:var(--red);font-weight:600;}
 .cd.warn{color:var(--orange);font-weight:600;}
 .ca{text-align:right;}
-.ca-n{font-size:16px;font-weight:700;font-family:'DM Mono',monospace;}
+.ca-n{font-size:16px;font-weight:700;font-family:DM Mono,monospace;}
 .ca-n.red{color:var(--red);}
 .ca-n.orange{color:var(--orange);}
 .ca-c{font-size:11px;color:var(--muted);margin-top:2px;}
@@ -112,7 +112,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 .dh{background:linear-gradient(135deg,var(--blue),var(--blue-mid));padding:14px 18px 22px;flex-shrink:0;}
 .dback{background:rgba(255,255,255,.2);border:none;border-radius:20px;padding:6px 14px 6px 10px;color:#fff;font-size:13px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-bottom:14px;font-weight:600;}
 .dname{font-size:23px;font-weight:700;color:#fff;}
-.dtotal{font-size:35px;font-weight:700;color:#fff;font-family:'DM Mono',monospace;letter-spacing:-1px;margin-top:3px;}
+.dtotal{font-size:35px;font-weight:700;color:#fff;font-family:DM Mono,monospace;letter-spacing:-1px;margin-top:3px;}
 .dtotal.red{color:#FCA5A5;}
 .dbody{padding:14px;flex:1;}
 
@@ -135,7 +135,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 .pi-date{font-size:12px;color:var(--muted);margin-top:1px;}
 .pi-date.red{color:var(--red);font-weight:600;}
 .pi-date.orange{color:var(--orange);font-weight:600;}
-.pi-amt{font-size:15px;font-weight:700;font-family:'DM Mono',monospace;text-align:right;}
+.pi-amt{font-size:15px;font-weight:700;font-family:DM Mono,monospace;text-align:right;}
 .pi-amt.red{color:var(--red);}
 .pi-amt.orange{color:var(--orange);}
 .pi-amt.green{color:var(--green);}
@@ -160,16 +160,16 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 .prop-body{padding:16px;}
 .prop-result{background:var(--surface);border-radius:var(--r);border:1px solid var(--border);padding:18px;margin-top:14px;}
 .prop-result-title{font-size:14px;font-weight:700;color:var(--blue);margin-bottom:12px;}
-.prop-total{font-size:32px;font-weight:700;font-family:'DM Mono',monospace;color:var(--blue);margin-bottom:12px;}
+.prop-total{font-size:32px;font-weight:700;font-family:DM Mono,monospace;color:var(--blue);margin-bottom:12px;}
 .prop-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px;}
 .prop-row:last-child{border-bottom:none;}
 .prop-row-lbl{color:var(--muted);}
-.prop-row-val{font-weight:700;font-family:'DM Mono',monospace;}
+.prop-row-val{font-weight:700;font-family:DM Mono,monospace;}
 .prop-date-item{display:flex;align-items:center;padding:8px 10px;border-radius:8px;margin-bottom:5px;font-size:13px;gap:8px;}
 .prop-date-item:nth-child(odd){background:var(--bg);}
 .pdi-num{font-weight:700;color:var(--purple);width:22px;flex-shrink:0;}
 .pdi-date{flex:1;color:var(--muted);}
-.pdi-amt{font-weight:700;font-family:'DM Mono',monospace;}
+.pdi-amt{font-weight:700;font-family:DM Mono,monospace;}
 .prop-note{background:var(--orange-light);border-radius:var(--rs);padding:10px 13px;font-size:12px;color:var(--orange);margin-top:10px;line-height:1.7;}
 .prop-rules{background:var(--blue-pale);border-radius:var(--rs);padding:12px 14px;font-size:12px;color:var(--blue);line-height:1.9;margin-top:12px;}
 
@@ -463,12 +463,114 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <button class="btn-p" onclick="saveSettings()">Guardar</button>
     <div class="divider"></div>
     <div class="section-title">💾 Respaldo de datos</div>
-    <div class="info-box">Si cambias de celular o borras el navegador perderás tus datos. Exporta tu respaldo regularmente y guárdalo en Google Drive o WhatsApp.</div>
+    <div class="info-box">Si cambias de celular o borras el navegador perderás tus datos. Conecta Google Drive para respaldo automático, o exporta manualmente.</div>
+
+    <div style="background:var(--purple-light);border-radius:var(--rs);padding:14px;margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:8px;">☁️ Respaldo automático en Google Drive</div>
+      <div id="gd-status" style="font-size:12px;color:var(--muted);margin-bottom:10px;">⚪ No conectado</div>
+      <div class="fg" style="margin-bottom:8px;">
+        <label class="fl" style="color:var(--purple);">Google OAuth Client ID</label>
+        <input class="fi" id="cfg-drive-cid" type="text" placeholder="xxx.apps.googleusercontent.com" style="font-size:12px;">
+      </div>
+      <button class="btn-p" style="background:var(--purple);font-size:13px;padding:11px;" onclick="connectDrive()">🔗 Conectar Google Drive</button>
+      <div style="font-size:11px;color:var(--purple);margin-top:8px;line-height:1.6;">
+        Para obtener tu Client ID: Google Cloud Console → APIs → Credenciales → OAuth 2.0 → Crear credencial → Aplicación web. Agrega este dominio en "Orígenes autorizados".
+      </div>
+    </div>
 
     <button class="btn-g" onclick="exportData()">📤 Exportar respaldo (.json)</button>
     <button class="btn-o" style="background:var(--green-light);color:var(--green);border:none;font-weight:600;" onclick="sendBackupWA()">📱 Enviar respaldo por WhatsApp</button>
     <button class="btn-o" onclick="document.getElementById('import-file').click()">📥 Importar / Restaurar datos</button>
     <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(this)">
+  </div>
+</div>
+
+
+<!-- MODAL: ALERTA DE PAGO -->
+<div class="mbg" id="m-alert">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <button class="xbtn" onclick="closeModal('m-alert')">✕</button>
+    <div class="mtitle">🔔 Configurar alerta</div>
+    <div class="ep-info" id="al-header"></div>
+    <input type="hidden" id="al-lid">
+    <input type="hidden" id="al-idx">
+    <input type="hidden" id="al-paydate">
+    <div class="fg">
+      <label class="fl">Fecha de la alerta</label>
+      <input class="fi" id="al-alertdate" type="date">
+      <div style="font-size:11px;color:var(--muted);margin-top:5px;">Selecciona el día en que quieres recibir el recordatorio</div>
+    </div>
+    <div class="fg">
+      <label class="fl">Hora de la alerta</label>
+      <input class="fi" id="al-alerttime" type="time" value="06:00">
+    </div>
+    <div class="fg">
+      <label class="fl">¿Cómo?</label>
+      <select class="fi fsel" id="al-how">
+        <option value="notif">Notificación en pantalla</option>
+        <option value="wa">WA a mí mismo (recordatorio)</option>
+        <option value="both">Ambas</option>
+      </select>
+    </div>
+    <div class="info-box" style="font-size:12px;line-height:1.7;">
+      La notificación aparecerá cuando abras la app en esa fecha/hora o después. El WA te llegará a ti como recordatorio para que envíes el cobro al cliente.
+    </div>
+    <button class="btn-p" onclick="saveAlert()">Guardar alerta</button>
+    <button class="btn-d" id="al-delete-btn" onclick="deleteAlert()" style="display:none;">Eliminar alerta</button>
+    <button class="btn-o" onclick="closeModal('m-alert')">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: BORRAR HISTORIAL -->
+<div class="mbg" id="m-del-hist">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <button class="xbtn" onclick="closeModal('m-del-hist')">✕</button>
+    <div class="mtitle">🗑 Borrar registro</div>
+    <div class="ep-info" id="dh-info"></div>
+    <input type="hidden" id="dh-pid">
+    <div style="font-size:14px;color:var(--text);margin-bottom:20px;">¿Qué deseas hacer con este registro?</div>
+    <button class="btn-p" style="background:var(--orange);" onclick="restoreHistEntry()">↩ Restaurar — regresar a pendiente</button>
+    <button class="btn-d" onclick="permanentDeleteHist()">🗑 Eliminar permanentemente</button>
+    <button class="btn-o" onclick="closeModal('m-del-hist')">Cancelar</button>
+  </div>
+</div>
+
+
+<!-- RESUMEN VIEW -->
+<div class="res-view" id="res-view">
+  <div class="res-h">
+    <button class="dback" onclick="closeResumen()">← Volver</button>
+    <div style="font-size:22px;font-weight:700;color:#fff;">📊 Resumen de préstamos</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:4px;" id="res-subtitle">Todos los préstamos</div>
+  </div>
+  <div class="res-body">
+    <div class="res-filters">
+      <div class="res-filter">
+        <label>Año</label>
+        <select id="res-year" onchange="renderResumen()"><option value="">Todos</option></select>
+      </div>
+      <div class="res-filter">
+        <label>Mes</label>
+        <select id="res-month" onchange="renderResumen()">
+          <option value="">Todos</option>
+          <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+          <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+          <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+          <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+        </select>
+      </div>
+      <div class="res-filter">
+        <label>Cliente</label>
+        <select id="res-client" onchange="renderResumen()"><option value="">Todos</option></select>
+      </div>
+    </div>
+    <div id="res-table-wrap"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button class="btn-g" style="flex:1;margin-top:0;" onclick="downloadResumen()">📥 Descargar CSV</button>
+      <button class="btn-o" style="flex:1;margin-top:0;background:var(--green-light);color:var(--green);border:none;font-weight:600;" onclick="sendResumenWA()">📱 Enviar por WA</button>
+    </div>
   </div>
 </div>
 
@@ -609,6 +711,9 @@ function init(){
   loadProfilePhoto();
   if(!S.owner){document.getElementById('setup-screen').classList.add('open');return;}
   document.getElementById('hdr-sub').textContent=S.owner;
+  // Restore Drive Client ID
+  S.driveClientId=localStorage.getItem('pa_drive_cid')||'';
+  if(S.driveClientId){initGoogleDrive();}
   renderMain();
 }
 function finishSetup(){
@@ -1545,6 +1650,16 @@ function openSettings(){
   document.getElementById('cfg-owner').value=S.owner;
   document.getElementById('cfg-phone').value=S.myphone;
   document.getElementById('cfg-days').value=S.alertdays;
+  // Restore Drive UI
+  var savedCid=localStorage.getItem('pa_drive_cid')||'';
+  document.getElementById('cfg-drive-cid').value=savedCid;
+  if(S.driveClientId&&GD.authorized){
+    document.getElementById('gd-status').textContent='✅ Conectado a Google Drive';
+    document.getElementById('gd-status').style.color='var(--green)';
+  }else if(savedCid){
+    document.getElementById('gd-status').textContent='⚠️ Client ID guardado — pendiente de autorizar';
+    document.getElementById('gd-status').style.color='var(--orange)';
+  }
   openModal('m-settings');
 }
 function saveSettings(){S.owner=document.getElementById('cfg-owner').value.trim()||S.owner;S.myphone=document.getElementById('cfg-phone').value.trim();S.alertdays=parseInt(document.getElementById('cfg-days').value)||3;localStorage.setItem('pa_owner',S.owner);localStorage.setItem('pa_phone',S.myphone);localStorage.setItem('pa_days',S.alertdays);document.getElementById('hdr-sub').textContent=S.owner;showNotif('✓ Configuración guardada');closeModal('m-settings');renderMain();}
@@ -1552,9 +1667,103 @@ function saveSettings(){S.owner=document.getElementById('cfg-owner').value.trim(
 // ============================================================
 // BACKUP / RESTORE
 // ============================================================
+// ============================================================
+// GOOGLE DRIVE AUTO-BACKUP
+// ============================================================
+var GD={tokenClient:null,accessToken:null,authorized:false};
 
-function autoBackup(){}
+function initGoogleDrive(){
+  // Load Google Identity Services (GIS) script dynamically
+  if(window.google&&window.google.accounts)return;
+  var s=document.createElement('script');
+  s.src='https://accounts.google.com/gsi/client';
+  s.onload=function(){setupGDTokenClient();};
+  document.head.appendChild(s);
+}
 
+function setupGDTokenClient(){
+  if(!window.google||!window.google.accounts)return;
+  GD.tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:S.driveClientId||'',
+    scope:'https://www.googleapis.com/auth/drive.file',
+    callback:function(resp){
+      if(resp.error){showNotif('Error al conectar con Drive: '+resp.error);return;}
+      GD.accessToken=resp.access_token;
+      GD.authorized=true;
+      localStorage.setItem('pa_drive_auth','1');
+      document.getElementById('gd-status').textContent='✅ Conectado a Google Drive';
+      document.getElementById('gd-status').style.color='var(--green)';
+      showNotif('✅ Conectado a Google Drive');
+      exportToGDrive();
+    }
+  });
+}
+
+function connectDrive(){
+  var cid=document.getElementById('cfg-drive-cid').value.trim();
+  if(!cid){showNotif('Ingresa tu Client ID de Google');return;}
+  S.driveClientId=cid;
+  localStorage.setItem('pa_drive_cid',cid);
+  initGoogleDrive();
+  setTimeout(function(){
+    if(GD.tokenClient){GD.tokenClient.client_id=cid;GD.tokenClient.requestAccessToken({prompt:'consent'});}
+    else{showNotif('Cargando Google Auth, intenta de nuevo en 2 segundos');}
+  },1000);
+}
+
+function exportToGDrive(){
+  var data={version:4,exportDate:todayStr(),owner:S.owner,clients:DB.clients,loans:DB.loans,payments:DB.payments,overrides:DB.overrides};
+  var json=JSON.stringify(data,null,2);
+  var filename='PrestApp_respaldo_'+todayStr()+'.json';
+  if(!GD.authorized||!GD.accessToken){return;}
+  // Use multipart upload to Drive
+  var boundary='-------314159265358979';
+  var delimiter='\r\n--'+boundary+'\r\n';
+  var close_delim='\r\n--'+boundary+'--';
+  var metadata={name:filename,mimeType:'application/json'};
+  var body=delimiter
+    +'Content-Type: application/json\r\n\r\n'
+    +JSON.stringify(metadata)
+    +delimiter
+    +'Content-Type: application/json\r\n\r\n'
+    +json
+    +close_delim;
+  fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+GD.accessToken,'Content-Type':'multipart/related; boundary="'+boundary+'"'},
+    body:body
+  }).then(function(r){return r.json();}).then(function(d){
+    if(d.id){showNotif('✅ Guardado en Google Drive: '+filename);}
+    else{showNotif('Error en Drive: '+JSON.stringify(d.error&&d.error.message||d));}
+  }).catch(function(e){showNotif('Error de red con Drive');});
+}
+
+function autoBackup(){
+  // Called after every data change if Drive authorized
+  if(GD.authorized&&GD.accessToken) exportToGDrive();
+  // Also save locally to indexedDB / sessionStorage as secondary
+}
+
+
+function sendBackupWA(){
+  var phone=S.myphone.replace(/\D/g,'');
+  if(phone.length===10) phone='52'+phone;
+  if(phone.length<12){showNotif('Agrega tu WhatsApp en configuración primero');return;}
+  var data={version:4,exportDate:todayStr(),owner:S.owner,clients:DB.clients,loans:DB.loans,payments:DB.payments,overrides:DB.overrides};
+  var json=JSON.stringify(data);
+  var size=Math.round(json.length/1024);
+  // WhatsApp doesn't allow file sending via URL, so we send a summary + remind to use export
+  var msg='📦 Respaldo PrestApp — '+todayStr()+'\n'
+    +'👤 Propietario: '+S.owner+'\n'
+    +'👥 Clientes: '+DB.clients.length+'\n'
+    +'💳 Préstamos: '+DB.loans.length+'\n'
+    +'💰 Pagos: '+DB.payments.length+'\n'
+    +'📊 Tamaño: ~'+size+' KB\n\n'
+    +'⚠️ Para restaurar: exporta el archivo .json desde la app y guárdalo en Drive o aquí en WhatsApp como documento.';
+  window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
+  // Also trigger local download so they can forward the file
+  setTimeout(function(){exportData();},500);
+}
 function exportData(){
   // Local download always works
   var data={version:4,exportDate:todayStr(),owner:S.owner,clients:DB.clients,loans:DB.loans,payments:DB.payments,overrides:DB.overrides};
@@ -1562,6 +1771,8 @@ function exportData(){
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');a.href=url;a.download='PrestApp_respaldo_'+todayStr()+'.json';a.click();URL.revokeObjectURL(url);
   showNotif('✓ Respaldo descargado');
+  // Also push to Drive if connected
+  if(GD.authorized) exportToGDrive();
 }
 function importData(input){
   var file=input.files[0];if(!file)return;
@@ -1891,16 +2102,16 @@ function renderResumen(){
         +'<td>'+r.y+'</td>'
         +'<td>'+mLbl+'</td>'
         +'<td>'+d+'</td>'
-        +'<td style="font-family:'DM Mono',monospace;text-align:right;">'+fmt(r.capital)+'</td>'
-        +'<td style="font-family:'DM Mono',monospace;text-align:right;color:var(--green);">'+fmt(r.interes)+'</td>'
-        +'<td style="font-family:'DM Mono',monospace;text-align:right;font-weight:700;">'+fmt(r.total)+'</td>'
+        +'<td style="font-family:DM Mono,monospace;text-align:right;">'+fmt(r.capital)+'</td>'
+        +'<td style="font-family:DM Mono,monospace;text-align:right;color:var(--green);">'+fmt(r.interes)+'</td>'
+        +'<td style="font-family:DM Mono,monospace;text-align:right;font-weight:700;">'+fmt(r.total)+'</td>'
         +'</tr>';
     });
     html+='<tr class="res-total-row">'
       +'<td colspan="4" style="text-align:right;font-size:12px;">TOTALES</td>'
-      +'<td style="text-align:right;font-family:'DM Mono',monospace;">'+fmt(totalCap)+'</td>'
-      +'<td style="text-align:right;font-family:'DM Mono',monospace;color:var(--green);">'+fmt(totalInt)+'</td>'
-      +'<td style="text-align:right;font-family:'DM Mono',monospace;">'+fmt(totalTot)+'</td>'
+      +'<td style="text-align:right;font-family:DM Mono,monospace;">'+fmt(totalCap)+'</td>'
+      +'<td style="text-align:right;font-family:DM Mono,monospace;color:var(--green);">'+fmt(totalInt)+'</td>'
+      +'<td style="text-align:right;font-family:DM Mono,monospace;">'+fmt(totalTot)+'</td>'
       +'</tr>';
     html+='</tbody></table></div>';
   }
@@ -1950,148 +2161,5 @@ function sendResumenWA(){
 
 init();
 </script>
-
-<!-- MODAL: ALERTA DE PAGO -->
-<div class="mbg" id="m-alert">
-  <div class="modal">
-    <div class="mhandle"></div>
-    <button class="xbtn" onclick="closeModal('m-alert')">✕</button>
-    <div class="mtitle">🔔 Configurar alerta</div>
-    <div class="ep-info" id="al-header"></div>
-    <input type="hidden" id="al-lid">
-    <input type="hidden" id="al-idx">
-    <input type="hidden" id="al-paydate">
-    <div class="fg">
-      <label class="fl">Fecha de la alerta</label>
-      <input class="fi" id="al-alertdate" type="date">
-      <div style="font-size:11px;color:var(--muted);margin-top:5px;">Selecciona el día en que quieres recibir el recordatorio</div>
-    </div>
-    <div class="fg">
-      <label class="fl">Hora de la alerta</label>
-      <input class="fi" id="al-alerttime" type="time" value="06:00">
-    </div>
-    <div class="fg">
-      <label class="fl">¿Cómo?</label>
-      <select class="fi fsel" id="al-how">
-        <option value="notif">Notificación en pantalla</option>
-        <option value="wa">WA a mí mismo (recordatorio)</option>
-        <option value="both">Ambas</option>
-      </select>
-    </div>
-    <div class="info-box" style="font-size:12px;line-height:1.7;">
-      La notificación aparecerá cuando abras la app en esa fecha/hora o después. El WA te llegará a ti como recordatorio para que envíes el cobro al cliente.
-    </div>
-    <button class="btn-p" onclick="saveAlert()">Guardar alerta</button>
-    <button class="btn-d" id="al-delete-btn" onclick="deleteAlert()" style="display:none;">Eliminar alerta</button>
-    <button class="btn-o" onclick="closeModal('m-alert')">Cancelar</button>
-  </div>
-</div>
-
-<!-- MODAL: BORRAR HISTORIAL -->
-<div class="mbg" id="m-del-hist">
-  <div class="modal">
-    <div class="mhandle"></div>
-    <button class="xbtn" onclick="closeModal('m-del-hist')">✕</button>
-    <div class="mtitle">🗑 Borrar registro</div>
-    <div class="ep-info" id="dh-info"></div>
-    <input type="hidden" id="dh-pid">
-    <div style="font-size:14px;color:var(--text);margin-bottom:20px;">¿Qué deseas hacer con este registro?</div>
-    <button class="btn-p" style="background:var(--orange);" onclick="restoreHistEntry()">↩ Restaurar — regresar a pendiente</button>
-    <button class="btn-d" onclick="permanentDeleteHist()">🗑 Eliminar permanentemente</button>
-    <button class="btn-o" onclick="closeModal('m-del-hist')">Cancelar</button>
-  </div>
-</div>
-
-
-<!-- RESUMEN VIEW -->
-<div class="res-view" id="res-view">
-  <div class="res-h">
-    <button class="dback" onclick="closeResumen()">← Volver</button>
-    <div style="font-size:22px;font-weight:700;color:#fff;">📊 Resumen de préstamos</div>
-    <div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:4px;" id="res-subtitle">Todos los préstamos</div>
-  </div>
-  <div class="res-body">
-    <div class="res-filters">
-      <div class="res-filter">
-        <label>Año</label>
-        <select id="res-year" onchange="renderResumen()"><option value="">Todos</option></select>
-      </div>
-      <div class="res-filter">
-        <label>Mes</label>
-        <select id="res-month" onchange="renderResumen()">
-          <option value="">Todos</option>
-          <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
-          <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
-          <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
-          <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-        </select>
-      </div>
-      <div class="res-filter">
-        <label>Cliente</label>
-        <select id="res-client" onchange="renderResumen()"><option value="">Todos</option></select>
-      </div>
-    </div>
-    <div id="res-table-wrap"></div>
-    <div style="display:flex;gap:8px;margin-top:14px;">
-      <button class="btn-g" style="flex:1;margin-top:0;" onclick="downloadResumen()">📥 Descargar CSV</button>
-      <button class="btn-o" style="flex:1;margin-top:0;background:var(--green-light);color:var(--green);border:none;font-weight:600;" onclick="sendResumenWA()">📱 Enviar por WA</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- MODAL: ALERTA DE PAGO -->
-<div class="mbg" id="m-alert">
-  <div class="modal">
-    <div class="mhandle"></div>
-    <button class="xbtn" onclick="closeModal('m-alert')">✕</button>
-    <div class="mtitle">🔔 Configurar alerta</div>
-    <div class="ep-info" id="al-header"></div>
-    <input type="hidden" id="al-lid">
-    <input type="hidden" id="al-idx">
-    <input type="hidden" id="al-paydate">
-    <div class="fg">
-      <label class="fl">Fecha de la alerta</label>
-      <input class="fi" id="al-alertdate" type="date">
-    </div>
-    <div class="fg">
-      <label class="fl">Hora de la alerta</label>
-      <input class="fi" id="al-alerttime" type="time" value="06:00">
-    </div>
-    <div class="fg">
-      <label class="fl">¿Cómo alertar?</label>
-      <select class="fi fsel" id="al-how">
-        <option value="notif">🔔 Notificación en pantalla</option>
-        <option value="wa">📱 WhatsApp al cliente</option>
-        <option value="both">📱🔔 Ambas (WA + notificación)</option>
-        <option value="selfwa">📲 WA a mí mismo (recordatorio)</option>
-      </select>
-    </div>
-    <div class="info-box" style="font-size:12px;line-height:1.8;">
-      📅 Elige cualquier fecha y hora.<br>
-      🔔 <strong>Notificación:</strong> aparece en pantalla cuando la app está abierta.<br>
-      📱 <strong>WA al cliente:</strong> abre WhatsApp con el mensaje listo.<br>
-      📲 <strong>WA a mí mismo:</strong> te manda un recordatorio a tu número.
-    </div>
-    <button class="btn-p" onclick="saveAlert()">💾 Guardar alerta</button>
-    <button class="btn-d" id="al-delete-btn" onclick="deleteAlert()" style="display:none;">🗑 Eliminar alerta</button>
-    <button class="btn-o" onclick="closeModal('m-alert')">Cancelar</button>
-  </div>
-</div>
-
-<!-- MODAL: BORRAR HISTORIAL -->
-<div class="mbg" id="m-del-hist">
-  <div class="modal">
-    <div class="mhandle"></div>
-    <button class="xbtn" onclick="closeModal('m-del-hist')">✕</button>
-    <div class="mtitle">🗑 Borrar registro</div>
-    <div class="ep-info" id="dh-info"></div>
-    <input type="hidden" id="dh-pid">
-    <div style="font-size:14px;color:var(--text);margin-bottom:20px;">¿Qué deseas hacer con este registro?</div>
-    <button class="btn-p" style="background:var(--orange);" onclick="restoreHistEntry()">↩ Restaurar — regresar a pendiente</button>
-    <button class="btn-d" onclick="permanentDeleteHist()">🗑 Eliminar permanentemente</button>
-    <button class="btn-o" onclick="closeModal('m-del-hist')">Cancelar</button>
-  </div>
-</div>
 </body>
 </html>
