@@ -867,10 +867,11 @@ function renderDPay(){
         // Compute capital/interest split per payment for display
         var loan_n=loan.num_pagos||1;
         var pay_cap=Math.round((loan.monto||0)/loan_n*100)/100;
-        var pay_int=Math.round((p.amount-pay_cap)*100)/100;
+        var pay_int=Math.round(Math.max(0,p.amount-pay_cap)*100)/100;
+        // Only show breakdown if there is real interest (> $0)
         var breakdownHtml='';
         if(pay_int>0.009){
-          breakdownHtml='<div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:DM Mono,monospace;">'+fmt(pay_cap)+' + '+fmt(pay_int)+'</div>';
+          breakdownHtml='<div style="font-size:10px;color:var(--muted);margin-top:3px;font-family:DM Mono,monospace;white-space:nowrap;">'+fmt(pay_cap)+' + '+fmt(pay_int)+'</div>';
         }
         var amtHtml=isPartial
           ?'<div class="pi-amt orange" style="font-size:12px;line-height:1.3;text-align:right;">'+fmt(restante)+'<br><span style="color:var(--muted);font-size:10px;">de '+fmt(p.amount)+'</span>'+breakdownHtml+'</div>'
@@ -2120,14 +2121,9 @@ function getResumenData(){
     var cl=DB.clients.find(function(c){return String(c.id)===String(l.cliente_id);});
     var nombre=cl?cl.nombre:'Sin nombre';
     var capital=l.monto||0;
-    // Calculate actual interest earned
-    var total=(l.monto||0)*(1+(l.interes||0)/100)+(l.proration||0);
-    if(l.frecuencia==='daily_meter'){
-      // Get override amount if set
-      var ov=DB.overrides[l.id];
-      if(ov&&ov[0]&&ov[0].amount) total=ov[0].amount;
-      else total=l.monto+(l.daily_charge||0);
-    }
+    // Use real scheduled amounts (respects overrides & edits)
+    var sched_r=getSched(l);
+    var total=Math.round(sched_r.reduce(function(s,p){return s+p.amount;},0)*100)/100;
     var interes=Math.round((total-capital)*100)/100;
     // Calculate composite status
     var sched2=getSched(l);
