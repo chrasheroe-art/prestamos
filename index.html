@@ -883,6 +883,27 @@ function openDetail(cid){
 function closeDetail(){document.getElementById('dv').classList.remove('open');renderMain();}
 function dTab(tab,el){S.dtab=tab;document.querySelectorAll('#dv .tabs .tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');document.getElementById('d-abo-btn').style.display=tab==='deudas'?'':'none';renderDPay();}
 
+function calcAtraso(loan, idx, p){
+  var ov=DB.overrides[loan.id]||{};
+  var o=ov[idx]||{};
+  // Si está detenido, usar días guardados
+  if(o.atraso_detenido){
+    var dias=o.atraso_dias||0;
+    return {dias:dias, monto:dias*50, detenido:true};
+  }
+  // No aplica a daily_meter
+  if(loan.frecuencia==='daily_meter') return {dias:0, monto:0, detenido:false};
+  // Solo si está vencido (fecha de pago < hoy)
+  var today=new Date(); today.setHours(0,0,0,0);
+  var due=new Date(p.date+'T12:00:00');
+  if(due>=today) return {dias:0, monto:0, detenido:false};
+  // días de atraso = días desde la fecha de pago hasta hoy (día 1 = día siguiente al vencimiento)
+  var diasAuto=Math.floor((today-due)/86400000);
+  // Si hay override manual de días
+  var dias=o.atraso_dias!==undefined?o.atraso_dias:diasAuto;
+  return {dias:dias, monto:dias*50, detenido:false};
+}
+
 function renderDPay(){
   var cid=S.client;
   var loans=DB.loans.filter(function(l){return String(l.cliente_id)===String(cid);});
@@ -1450,26 +1471,6 @@ function saveOv(lid,idx,fields){var ov=DB.overrides;if(!ov[lid])ov[lid]={};if(!o
 
 // Calcula días y monto de atraso para un pago
 // No aplica a daily_meter (cobro diario ya incluye el cargo)
-function calcAtraso(loan, idx, p){
-  var ov=DB.overrides[loan.id]||{};
-  var o=ov[idx]||{};
-  // Si está detenido, usar días guardados
-  if(o.atraso_detenido){
-    var dias=o.atraso_dias||0;
-    return {dias:dias, monto:dias*50, detenido:true};
-  }
-  // No aplica a daily_meter
-  if(loan.frecuencia==='daily_meter') return {dias:0, monto:0, detenido:false};
-  // Solo si está vencido (fecha de pago < hoy)
-  var today=new Date(); today.setHours(0,0,0,0);
-  var due=new Date(p.date+'T12:00:00');
-  if(due>=today) return {dias:0, monto:0, detenido:false};
-  // días de atraso = días desde la fecha de pago hasta hoy (día 1 = día siguiente al vencimiento)
-  var diasAuto=Math.floor((today-due)/86400000);
-  // Si hay override manual de días
-  var dias=o.atraso_dias!==undefined?o.atraso_dias:diasAuto;
-  return {dias:dias, monto:dias*50, detenido:false};
-}
 
 
 // ============================================================
