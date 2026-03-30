@@ -395,11 +395,13 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <div class="ep-info" id="ep-header"></div>
     <input type="hidden" id="ep-lid">
     <input type="hidden" id="ep-idx">
+    <div class="fg"><label class="fl">Cliente asignado</label><select class="fi fsel" id="ep-client"></select></div>
     <div class="fg"><label class="fl">Concepto</label><input class="fi" id="ep-concept" type="text"></div>
     <div style="display:flex;gap:10px;">
       <div class="fg" style="flex:1;"><label class="fl">Capital *</label><input class="fi" id="ep-capital" type="number" min="0" placeholder="0" oninput="updateEpTotal()"></div>
       <div class="fg" style="flex:1;"><label class="fl">Interés</label><input class="fi" id="ep-interest" type="number" min="0" placeholder="0" oninput="updateEpTotal()"></div>
     </div>
+    <div class="fg"><label class="fl" style="color:var(--blue-mid);">Descuento 🔵</label><input class="fi" id="ep-descuento" type="number" min="0" placeholder="0" oninput="updateEpTotal()" style="border-color:var(--blue-mid);"></div>
     <div id="ep-total-preview" style="background:var(--blue-light);border-radius:var(--rs);padding:10px 14px;margin-bottom:13px;font-size:14px;color:var(--blue);font-weight:700;display:none;"></div>
     <input type="hidden" id="ep-amount">
     <div class="fg"><label class="fl">Total abonado</label><input class="fi" id="ep-paid" type="number" min="0" placeholder="0" oninput="updateEpRemain()"></div>
@@ -1350,11 +1352,18 @@ function openEditPay(lid,idx){
   var loan_n=loan.num_pagos||1;
   var cap=Math.round((loan.monto||0)/loan_n*100)/100;
   var inter=Math.round(Math.max(0,p.amount-cap)*100)/100;
+  // Populate client selector
+  var csel=document.getElementById('ep-client');
+  var clients=DB.clients.slice().sort(function(a,b){return a.nombre.localeCompare(b.nombre,'es');});
+  csel.innerHTML='';
+  clients.forEach(function(c){csel.innerHTML+='<option value="'+c.id+'">'+c.nombre+'</option>';});
+  csel.value=loan.cliente_id;
   document.getElementById('ep-lid').value=lid;
   document.getElementById('ep-idx').value=idx;
   document.getElementById('ep-concept').value=p.concept||loan.concepto;
   document.getElementById('ep-capital').value=cap;
   document.getElementById('ep-interest').value=inter;
+  document.getElementById('ep-descuento').value=p.descuento||0;
   document.getElementById('ep-amount').value=p.amount;
   document.getElementById('ep-paid').value=p.abonado||0;
   document.getElementById('ep-date').value=p.date;
@@ -1368,12 +1377,17 @@ function openEditPay(lid,idx){
 function updateEpTotal(){
   var cap=parseFloat(document.getElementById('ep-capital').value)||0;
   var inter=parseFloat(document.getElementById('ep-interest').value)||0;
-  var total=Math.round((cap+inter)*100)/100;
+  var desc=parseFloat(document.getElementById('ep-descuento').value)||0;
+  var total=Math.round((cap+inter-desc)*100)/100;
+  if(total<0) total=0;
   document.getElementById('ep-amount').value=total;
   var prev=document.getElementById('ep-total-preview');
   if(cap>0){
     prev.style.display='';
-    prev.innerHTML=fmt(cap)+' <span style="font-weight:400;color:var(--blue-mid);">+</span> '+fmt(inter)+' <span style="font-weight:400;color:var(--blue-mid);">=</span> <strong>'+fmt(total)+'</strong>';
+    var html=fmt(cap)+' <span style="font-weight:400;color:var(--blue-mid);">+</span> '+fmt(inter);
+    if(desc>0.009) html+=' <span style="font-weight:400;color:var(--blue-mid);">−</span> <span style="color:var(--blue-mid);">'+fmt(desc)+'</span>';
+    html+=' <span style="font-weight:400;color:var(--blue-mid);">=</span> <strong>'+fmt(total)+'</strong>';
+    prev.innerHTML=html;
   }else{prev.style.display='none';}
   updateEpRemain();
 }
@@ -1391,8 +1405,19 @@ function saveEditPay(){
   var date=document.getElementById('ep-date').value;
   var status=document.getElementById('ep-status').value;
   var notes=document.getElementById('ep-notes').value.trim();
+  var desc=parseFloat(document.getElementById('ep-descuento').value)||0;
+  var newClientId=document.getElementById('ep-client').value;
   if(!amt||!date){showNotif('Completa monto y fecha');return;}
-  saveOv(lid,idx,{concept:con,amount:amt,date:date,status:status,notes:notes});
+  // Update loan client if changed
+  if(newClientId){
+    var loans=DB.loans;
+    var lIdx=loans.findIndex(function(l){return String(l.id)===String(lid);});
+    if(lIdx!==-1&&String(loans[lIdx].cliente_id)!==String(newClientId)){
+      loans[lIdx].cliente_id=newClientId;
+      DB.loans=loans;
+    }
+  }
+  saveOv(lid,idx,{concept:con,amount:amt,date:date,status:status,notes:notes,descuento:desc});
   var existing=getAbonado(lid,idx);
   var diff=paid-existing;
   if(Math.abs(diff)>0.009){
@@ -2236,6 +2261,7 @@ function getResumenData(){
         concepto:l.concepto||'',
         capital:pay_cap,
         interes:pay_int,
+        descuento:(DB.overrides[l.id]&&DB.overrides[l.id][pi]&&DB.overrides[l.id][pi].descuento)||0,
         total:p.amount,
         status:pStatus,
         payNum:pi+1,
@@ -2251,15 +2277,15 @@ function getResumenData(){
 var MESES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function renderResumen(){
   var rows=getResumenData();
-  var totalCap=0,totalInt=0,totalTot=0;
-  rows.forEach(function(r){totalCap+=r.capital;totalInt+=r.interes;totalTot+=r.total;});
+  var totalCap=0,totalInt=0,totalDesc=0,totalTot=0;
+  rows.forEach(function(r){totalCap+=r.capital;totalInt+=r.interes;totalDesc+=r.descuento;totalTot+=r.total;});
   document.getElementById('res-subtitle').textContent=rows.length+' pago'+(rows.length!==1?'s':'');
   var html='';
   if(!rows.length){
     html='<div class="empty"><div class="empty-ico">📋</div><div>Sin pagos con estos filtros</div></div>';
   }else{
     html='<div style="overflow-x:auto;"><table class="res-table"><thead><tr>'
-      +'<th>Cliente</th><th>Concepto</th><th>Fecha pago</th><th>Capital</th><th>Interés</th><th>Total</th><th>Estado</th><th></th>'
+      +'<th>Cliente</th><th>Concepto</th><th>Fecha pago</th><th>Capital</th><th>Interés</th><th style="color:#93C5FD;">Descuento</th><th>Total</th><th>Estado</th><th></th>'
       +'</tr></thead><tbody>';
     rows.forEach(function(r){
       var fechaDisplay=r.fecha?fmtDate(r.fecha):'';
@@ -2272,6 +2298,7 @@ function renderResumen(){
         +'<td style="font-size:12px;">'+fechaDisplay+'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;">'+fmt(r.capital)+'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;color:var(--green);">'+fmt(r.interes)+'</td>'
+        +'<td style="font-family:DM Mono,monospace;text-align:right;color:var(--blue-mid);">'+(r.descuento>0?'−'+fmt(r.descuento):'—')+'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;font-weight:700;">'+fmt(r.total)+'</td>'
         +'<td style="text-align:center;font-size:11px;color:'+statusColor+';">'+statusLabel+'</td>'
         +'<td style="text-align:center;"><button onclick="deleteLoanFromResumen(\''+r.loanId+'\')" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;">🗑</button></td>'
@@ -2281,6 +2308,7 @@ function renderResumen(){
       +'<td colspan="3" style="text-align:right;font-size:12px;">TOTALES</td>'
       +'<td style="text-align:right;font-family:DM Mono,monospace;">'+fmt(totalCap)+'</td>'
       +'<td style="text-align:right;font-family:DM Mono,monospace;color:var(--green);">'+fmt(totalInt)+'</td>'
+      +'<td style="text-align:right;font-family:DM Mono,monospace;color:var(--blue-mid);">'+(totalDesc>0?'−'+fmt(totalDesc):'—')+'</td>'
       +'<td style="text-align:right;font-family:DM Mono,monospace;">'+fmt(totalTot)+'</td>'
       +'<td></td><td></td>'
       +'</tr>';
@@ -2307,11 +2335,11 @@ function deleteLoanFromResumen(loanId){
 function downloadResumen(){
   var rows=getResumenData();
   if(!rows.length){showNotif('Sin datos para descargar');return;}
-  var csv='Cliente,Año,Mes,Día,Capital,Interés,Total,Concepto\n';
+  var csv='Cliente,Año,Mes,Día,Capital,Interés,Descuento,Total,Concepto\n';
   rows.forEach(function(r){
     var d=r.fecha?r.fecha.substring(8,10):'';
     var mLbl=r.m?MESES[parseInt(r.m)]||r.m:'';
-    csv+='"'+r.nombre+'","'+r.y+'","'+mLbl+'","'+d+'","'+r.capital+'","'+r.interes+'","'+r.total+'","'+r.concepto+'"\n';
+    csv+='"'+r.nombre+'","'+r.y+'","'+mLbl+'","'+d+'","'+r.capital+'","'+r.interes+'","'+r.descuento+'","'+r.total+'","'+r.concepto+'"\n';
   });
   var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   var url=URL.createObjectURL(blob);
@@ -2325,8 +2353,8 @@ function sendResumenWA(){
   if(phone.length<12){showNotif('Agrega tu WhatsApp en configuración');return;}
   var rows=getResumenData();
   if(!rows.length){showNotif('Sin datos para enviar');return;}
-  var totalCap=0,totalInt=0,totalTot=0;
-  rows.forEach(function(r){totalCap+=r.capital;totalInt+=r.interes;totalTot+=r.total;});
+  var totalCap=0,totalInt=0,totalDesc=0,totalTot=0;
+  rows.forEach(function(r){totalCap+=r.capital;totalInt+=r.interes;totalDesc+=r.descuento;totalTot+=r.total;});
   var filterY=document.getElementById('res-year').value;
   var filterM=document.getElementById('res-month').value;
   var filterC=document.getElementById('res-client').value;
@@ -2337,11 +2365,11 @@ function sendResumenWA(){
     var d=r.fecha?r.fecha.substring(8,10):'';
     var mLbl=r.m?MESES[parseInt(r.m)]||r.m:'';
     msg+=r.nombre+' · '+d+'/'+mLbl+'/'+r.y+'\n'
-      +'  Capital: '+fmt(r.capital)+' · Interés: '+fmt(r.interes)+' · Total: '+fmt(r.total)+'\n';
+      +'  Capital: '+fmt(r.capital)+' · Interés: '+fmt(r.interes)+(r.descuento>0?' · Descuento: −'+fmt(r.descuento):'')+' · Total: '+fmt(r.total)+'\n';
   });
   if(rows.length>20) msg+='...y '+(rows.length-20)+' más\n';
   msg+='─'.repeat(30)+'\n';
-  msg+='TOTALES: Capital '+fmt(totalCap)+' · Interés '+fmt(totalInt)+' · Total '+fmt(totalTot);
+  msg+='TOTALES: Capital '+fmt(totalCap)+' · Interés '+fmt(totalInt)+(totalDesc>0?' · Descuento −'+fmt(totalDesc):'')+' · Total '+fmt(totalTot);
   window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
 }
 
