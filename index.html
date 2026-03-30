@@ -917,8 +917,9 @@ function renderDPay(){
             +'</div>';
         }
         var displayTotal=atr.monto>0?totalConAtraso:p.amount;
+        var restanteConAtraso=Math.round((restante+atr.monto)*100)/100;
         var amtHtml=isPartial
-          ?'<div class="pi-amt orange" style="font-size:12px;line-height:1.3;text-align:right;">'+fmt(restante)+'<br><span style="color:var(--muted);font-size:10px;">de '+fmt(displayTotal)+'</span>'+breakdownHtml+'</div>'
+          ?'<div class="pi-amt orange" style="font-size:12px;line-height:1.3;text-align:right;">'+fmt(restanteConAtraso)+'<br><span style="color:var(--muted);font-size:10px;">de '+fmt(displayTotal)+'</span>'+breakdownHtml+'</div>'
           :'<div style="text-align:right;"><div class="pi-amt'+(u==='overdue'?' red':u==='warning'?' orange':'')+(atr.monto>0?' red':'')+'">'+fmt(displayTotal)+'</div>'+breakdownHtml+'</div>';
         html+='<div class="pi'+pc+'">'
           +'<div class="pi-top"><div class="pi-ico" style="background:'+ibg+'">'+ico+'</div>'
