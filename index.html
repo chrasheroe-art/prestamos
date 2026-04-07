@@ -818,37 +818,9 @@ function renderMain(){
       var ac=u==='overdue'?'ca-n red':u==='warning'?'ca-n orange':'ca-n';
       var dt=tab==='cobrar'?(nd?(u==='overdue'?'⚠ Vencido: '+nd:u==='warning'?'🕐 Vence: '+nd:'Vence: '+nd):'Sin vencimiento'):(cnt+' pago'+(cnt!==1?'s':'')+' realizados');
       var dc=u==='overdue'?'cd urg':u==='warning'?'cd warn':'cd';
-      // Desglose visual en tarjeta
-      var desgloseLine='';
-      if(tab==='cobrar'){
-        var dCap=0,dInt=0,dAtr=0,dDesc=0;
-        e.loans.forEach(function(l){
-          var ln=l.num_pagos||1;
-          var pcap=Math.round((l.monto||0)/ln*100)/100;
-          getSched(l).forEach(function(p,pi){
-            if(p.status==='pagado') return;
-            var atr=calcAtraso(l,pi,p);
-            var pint=Math.round(Math.max(0,p.amount-pcap)*100)/100;
-            var pdesc=p.descuento||0;
-            dCap+=Math.max(0,pcap-(p.abonado||0));
-            dInt+=pint;
-            dAtr+=atr.monto;
-            dDesc+=pdesc;
-          });
-        });
-        dCap=Math.round(dCap); dInt=Math.round(dInt); dAtr=Math.round(dAtr); dDesc=Math.round(dDesc);
-        var parts=[];
-        if(dCap>0) parts.push('<span style="color:var(--blue);">$'+dCap.toLocaleString('es-MX')+'</span>');
-        if(dInt>0) parts.push('<span style="color:var(--green);">+$'+dInt.toLocaleString('es-MX')+'</span>');
-        if(dAtr>0) parts.push('<span style="color:var(--red);">+$'+dAtr.toLocaleString('es-MX')+'⏰</span>');
-        if(dDesc>0) parts.push('<span style="color:var(--blue-mid);">−$'+dDesc.toLocaleString('es-MX')+'🏷</span>');
-        if(parts.length>1) desgloseLine='<div style="font-size:10px;font-family:DM Mono,monospace;margin-top:2px;line-height:1.5;">'+parts.join(' ')+'</div>';
-      }
       html+='<div class="'+cc+'" onclick="openDetail(\''+cid+'\')"><div class="ava" style="background:'+col+'22;color:'+col+'">'+ini+'</div>'
         +'<div class="ci"><div class="cn">'+name+'</div><div class="'+dc+'">'+dt+'</div></div>'
-        +'<div class="ca"><div class="'+ac+'">'+fmt(total)+'</div>'
-        +desgloseLine
-        +'<div class="ca-c">'+(tab==='cobrar'?cnt+' pago'+(cnt!==1?'s':'')+' pendiente'+(cnt!==1?'s':''):'')+'</div></div></div>';
+        +'<div class="ca"><div class="'+ac+'">'+fmt(total)+'</div><div class="ca-c">'+(tab==='cobrar'?cnt+' pago'+(cnt!==1?'s':'')+' pendiente'+(cnt!==1?'s':''):'')+'</div></div></div>';
     });
   }
   html+='</div>';
@@ -931,10 +903,6 @@ function renderDPay(){
           if(atr.monto>0){
             breakdownHtml+=' <span style="color:var(--red);">+'+fmt(atr.monto)+'</span>';
           }
-          if(desc>0){
-            breakdownHtml+=' <span style="color:var(--blue-mid);">−'+fmt(desc)+'</span>';
-          }
-          breakdownHtml+='<span style="font-weight:700;color:var(--text);"> = '+fmt(displayTotal)+'</span>';
           breakdownHtml+='</div>';
         }
         // Fila de atraso editable (solo si vencido o tiene atraso)
@@ -950,28 +918,16 @@ function renderDPay(){
             +'<button onclick="toggleAtrasoStop(\''+loan.id+'\','+i+')" style="'+detBtnStyle+'border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:auto;">'+detBtnLabel+'</button>'
             +'</div>';
         }
-        var desc=p.descuento||0;
-        var displayTotal=Math.max(0,(atr.monto>0?totalConAtraso:p.amount)-desc);
-        var restanteConAtraso=Math.max(0,Math.round((restante+atr.monto-desc)*100)/100);
+        var displayTotal=atr.monto>0?totalConAtraso:p.amount;
+        var restanteConAtraso=Math.round((restante+atr.monto)*100)/100;
         var amtHtml=isPartial
           ?'<div class="pi-amt orange" style="font-size:12px;line-height:1.3;text-align:right;">'+fmt(restanteConAtraso)+'<br><span style="color:var(--muted);font-size:10px;">de '+fmt(displayTotal)+'</span>'+breakdownHtml+'</div>'
           :'<div style="text-align:right;"><div class="pi-amt'+(u==='overdue'?' red':u==='warning'?' orange':'')+(atr.monto>0?' red':'')+'">'+fmt(displayTotal)+'</div>'+breakdownHtml+'</div>';
-        // Descuento inline row
-        var descRowHtml='<div style="margin-top:6px;padding:7px 10px;background:var(--blue-pale);border-radius:8px;display:flex;align-items:center;gap:8px;">'
-          +'<span style="font-size:11px;color:var(--blue-mid);font-weight:700;flex:0 0 auto;">🏷 Descuento:</span>'
-          +'<input type="number" min="0" value="'+desc+'" placeholder="0" '
-          +'style="width:80px;padding:3px 7px;font-size:12px;border:1px solid var(--blue-light);border-radius:6px;font-family:DM Mono,monospace;text-align:center;background:#fff;color:var(--blue-mid);font-weight:700;" '
-          +'onchange="saveDescuentoOverride(\''+loan.id+'\','+i+',parseFloat(this.value)||0)" '
-          +'oninput="previewDescuento(this,'+displayTotal+','+desc+')" />'
-          +'<span id="desc-preview-'+loan.id+'-'+i+'" style="font-size:11px;color:var(--blue-mid);">'
-          +(desc>0?' → Total: '+fmt(displayTotal):'')+'</span>'
-          +'</div>';
         html+='<div class="pi'+pc+'">'
           +'<div class="pi-top"><div class="pi-ico" style="background:'+ibg+'">'+ico+'</div>'
           +'<div class="pi-info"><div class="pi-name">'+(p.concept||loan.concepto)+' · Pago '+(i+1)+'/'+sched.length+'</div>'
           +'<div class="'+dc+'">'+fmtDate(p.date)+'</div>'+pill+'</div>'+amtHtml+'</div>'
           +atrasoRowHtml
-          +descRowHtml
           +'<div class="pi-actions">'
           +'<button class="pi-btn pbb" onclick="openEditPay(\''+loan.id+'\','+i+')">✏ Editar</button>'
           +'<button class="pi-btn pbg" onclick="openAbono(\''+loan.id+'\','+i+')">+ Abono</button>'
@@ -1058,7 +1014,7 @@ function getSched(loan){
     var elimOv=o.eliminado||false;
     var status=o.status||(abonado>=baseAmt-0.009&&baseAmt>0?'pagado':abonado>0?'parcial':'pendiente');
     // eliminado counts as pagado for pending list (it's gone), but we store it
-    result.push({date:o.date||calcDateFromFirst(loan.first_date,loan.frecuencia||'biweekly',i),amount:baseAmt,concept:o.concept||loan.concepto,status:status,notes:o.notes||'',abonado:abonado,descuento:o.descuento||0});
+    result.push({date:o.date||calcDateFromFirst(loan.first_date,loan.frecuencia||'biweekly',i),amount:baseAmt,concept:o.concept||loan.concepto,status:status,notes:o.notes||'',abonado:abonado});
   }
   return result;
 }
@@ -1072,14 +1028,18 @@ function remDebt(loan){
   sched.forEach(function(p,idx){
     if(p.status==='pagado') return;
     var a=calcAtraso(loan,idx,p);
-    var desc=p.descuento||0;
-    total+=Math.max(0,p.amount-(p.abonado||0))+a.monto-desc;
+    total+=Math.max(0,p.amount-(p.abonado||0))+a.monto;
   });
   return total;
 }
 function pendCnt(loan){return getSched(loan).filter(function(p){return p.status!=='pagado';}).length;}
 function paidCnt(loan){return getSched(loan).filter(function(p){return p.status==='pagado';}).length;}
-function totalPaid(loan){return getSched(loan).filter(function(p){return p.status==='pagado';}).reduce(function(s,p){return s+p.amount;},0);}
+function totalPaid(loan){
+  // Suma lo que realmente se recibió: abonos registrados en pa_payments para este préstamo
+  return DB.payments
+    .filter(function(p){return String(p.prestamo_id)===String(loan.id)&&p.estado!=='eliminado';})
+    .reduce(function(s,p){return s+(p.monto||0);},0);
+}
 function hasAnyPayment(loan){return DB.payments.some(function(p){return String(p.prestamo_id)===String(loan.id);});}
 function isLiq(loan){return pendCnt(loan)===0;}
 function urgency(loans){var w='ok';loans.forEach(function(l){getSched(l).forEach(function(p){if(p.status==='pagado')return;var u=dateUrg(p.date,p.status);if(u==='overdue')w='overdue';else if(u==='warning'&&w!=='overdue')w='warning';});});return w;}
@@ -1510,27 +1470,6 @@ function saveAtrasoOverride(lid,idx,dias){
   refreshDetailHeader();
   renderDPay();
 }
-
-function saveDescuentoOverride(lid,idx,desc){
-  if(isNaN(desc)||desc<0) desc=0;
-  saveOv(lid,idx,{descuento:desc});
-  refreshDetailHeader();
-  renderDPay();
-}
-
-function previewDescuento(input,baseTotal,currentDesc){
-  // Live preview while typing — find the sibling span
-  var val=parseFloat(input.value)||0;
-  var next=input.nextElementSibling;
-  if(!next)return;
-  if(val>0){
-    var newTotal=Math.max(0,baseTotal-val+currentDesc);
-    next.textContent=' → Total: $'+Math.round(newTotal).toLocaleString('es-MX');
-    next.style.color='var(--blue-mid)';
-  }else{
-    next.textContent='';
-  }
-}
 function toggleAtrasoStop(lid,idx){
   var ov=DB.overrides[lid]||{};
   var o=ov[idx]||{};
@@ -1852,13 +1791,18 @@ function sendPropWA(){
 
 function usarPropuesta(){
   var amt=parseFloat(document.getElementById('pr-amount').value)||0;
-  var pct=parseFloat(document.getElementById('pr-interest').value)||0;
-  var n=parseInt(document.getElementById('pr-npay').value)||1;
   var freq=document.getElementById('pr-freq').value;
-  var fd=document.getElementById('pr-firstdate').value;
-  if(!amt||!fd){showNotif('Completa la propuesta primero');return;}
-  // Save propuesta state for later restore
-  S._propState={amt:amt,pct:pct,n:n,freq:freq,fd:fd};
+  var isMeter=(freq==='daily_meter');
+  var isFixed=(freq==='daily_fixed');
+  if(!amt){showNotif('Ingresa el monto primero');return;}
+  var pct=parseFloat(document.getElementById('pr-interest').value)||0;
+  var n=(isMeter||isFixed)?1:parseInt(document.getElementById('pr-npay').value)||1;
+  var fd=isFixed?'':isMeter?'':document.getElementById('pr-firstdate').value;
+  var fixedPaydate=isFixed?document.getElementById('pr-paydate').value:'';
+  var meterStart=isMeter?document.getElementById('pr-amount').value:''; // solo para señal
+  if(isFixed&&!fixedPaydate){showNotif('Selecciona la fecha de pago en la propuesta');return;}
+  if(!isMeter&&!isFixed&&!fd){showNotif('Selecciona la fecha del primer pago');return;}
+  S._propState={amt:amt,pct:pct,n:n,freq:freq,fd:fd,fixedPaydate:fixedPaydate,isMeter:isMeter,isFixed:isFixed};
   closeProp();
   _openLoanFromProp();
 }
@@ -1881,11 +1825,33 @@ function _openLoanFromProp(){
   };
   document.getElementById('l-amount').value=ps.amt;
   document.getElementById('l-interest').value=ps.pct;
-  document.getElementById('l-npay').value=ps.n;
   document.getElementById('l-freq').value=ps.freq;
-  document.getElementById('l-firstdate').value=ps.fd;
   document.getElementById('l-concept').value='Préstamo';
-  document.getElementById('l-pct-wrap').style.display=ps.freq==='daily'?'none':'';
+  // Aplicar campos según tipo de frecuencia
+  if(ps.isMeter){
+    document.getElementById('l-meter-wrap').style.display='';
+    document.getElementById('l-pct-wrap').style.display='none';
+    document.getElementById('l-npay-wrap').style.display='none';
+    document.getElementById('l-firstdate-wrap').style.display='none';
+    document.getElementById('l-fixed-paydate-wrap').style.display='none';
+    document.getElementById('l-meter-start').value=todayStr();
+    document.getElementById('l-meter-end').value='';
+  }else if(ps.isFixed){
+    document.getElementById('l-meter-wrap').style.display='none';
+    document.getElementById('l-pct-wrap').style.display='';
+    document.getElementById('l-npay-wrap').style.display='none';
+    document.getElementById('l-firstdate-wrap').style.display='none';
+    document.getElementById('l-fixed-paydate-wrap').style.display='';
+    document.getElementById('l-fixed-paydate').value=ps.fixedPaydate||'';
+  }else{
+    document.getElementById('l-meter-wrap').style.display='none';
+    document.getElementById('l-pct-wrap').style.display='';
+    document.getElementById('l-npay-wrap').style.display='';
+    document.getElementById('l-firstdate-wrap').style.display='';
+    document.getElementById('l-fixed-paydate-wrap').style.display='none';
+    document.getElementById('l-npay').value=ps.n;
+    document.getElementById('l-firstdate').value=ps.fd;
+  }
   calcLoanPreview();
   openModal('m-loan');
 }
@@ -2194,7 +2160,7 @@ function checkScheduledNotifs(){
       showNotif('🔔 '+body,6000);
       // If alert says send WA to self (dayBefore)
       var alert=ALERTS[n.key];
-      if(alert&&(alert.how==='wa'||alert.how==='both')&&alert.when==='dayBefore'){
+      if(alert&&(alert.how==='wa'||alert.how==='both')){
         var myPhone=S.myphone.replace(/\D/g,'');
         if(myPhone.length===10) myPhone='52'+myPhone;
         if(myPhone.length>=12){
@@ -2252,6 +2218,7 @@ function restoreHistEntry(){
   closeModal('m-del-hist');
   refreshDetailHeader();
   renderDPay();
+  renderMain();
 }
 
 function permanentDeleteHist(){
@@ -2262,7 +2229,9 @@ function permanentDeleteHist(){
   autoBackup();
   showNotif('🗑 Registro eliminado permanentemente');
   closeModal('m-del-hist');
+  refreshDetailHeader();
   renderDPay();
+  renderMain();
 }
 
 
@@ -2270,12 +2239,14 @@ function permanentDeleteHist(){
 // RESUMEN MODULE
 // ============================================================
 function openResumen(){
-  // Populate year filter
+  // Populate year filter desde fechas reales de cada pago (no fecha_creacion)
   var loans=DB.loans;
   var years={};
   loans.forEach(function(l){
-    var y=(l.fecha_creacion||'').substring(0,4);
-    if(y) years[y]=1;
+    getSched(l).forEach(function(p){
+      var y=(p.date||'').substring(0,4);
+      if(y) years[y]=1;
+    });
   });
   var ySel=document.getElementById('res-year');
   var curY=ySel.value;
@@ -2321,20 +2292,17 @@ function getResumenData(){
       var pStatus=p.status||'pendiente';
       if(filterStatus&&pStatus!==filterStatus) return;
       var pay_int=Math.round(Math.max(0,p.amount-pay_cap)*100)/100;
-      var atrData=calcAtraso(l,pi,p);
-      var rDesc=(DB.overrides[l.id]&&DB.overrides[l.id][pi]&&DB.overrides[l.id][pi].descuento)||0;
-      var rTotal=Math.max(0,p.amount+atrData.monto-rDesc);
+      var atr=calcAtraso(l,pi,p);
+      var totalConAtr=Math.round((p.amount+atr.monto)*100)/100;
       rows.push({
         fecha:fecha,y:y,m:m,
         nombre:nombre,
         concepto:l.concepto||'',
         capital:pay_cap,
         interes:pay_int,
-        atraso:atrData.monto,
-        atrDias:atrData.dias,
-        atrDetenido:atrData.detenido,
-        descuento:rDesc,
-        total:rTotal,
+        descuento:(DB.overrides[l.id]&&DB.overrides[l.id][pi]&&DB.overrides[l.id][pi].descuento)||0,
+        atraso:atr.monto,
+        total:totalConAtr,
         status:pStatus,
         payNum:pi+1,
         totalPays:sched.length,
@@ -2349,15 +2317,15 @@ function getResumenData(){
 var MESES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function renderResumen(){
   var rows=getResumenData();
-  var totalCap=0,totalInt=0,totalAtr=0,totalDesc=0,totalTot=0;
-  rows.forEach(function(r){totalCap+=r.capital;totalInt+=r.interes;totalAtr+=(r.atraso||0);totalDesc+=r.descuento;totalTot+=r.total;});
+  var totalCap=0,totalInt=0,totalDesc=0,totalAtr=0,totalTot=0;
+  rows.forEach(function(r){totalCap+=r.capital;totalInt+=r.interes;totalDesc+=r.descuento;totalAtr+=(r.atraso||0);totalTot+=r.total;});
   document.getElementById('res-subtitle').textContent=rows.length+' pago'+(rows.length!==1?'s':'');
   var html='';
   if(!rows.length){
     html='<div class="empty"><div class="empty-ico">📋</div><div>Sin pagos con estos filtros</div></div>';
   }else{
     html='<div style="overflow-x:auto;"><table class="res-table"><thead><tr>'
-      +'<th>Cliente</th><th>Concepto</th><th>Fecha pago</th><th>Capital</th><th>Interés</th><th style="color:var(--red);">⏰ Atraso</th><th style="color:#93C5FD;">🏷 Descuento</th><th>Total</th><th>Estado</th><th></th>'
+      +'<th>Cliente</th><th>Concepto</th><th>Fecha pago</th><th>Capital</th><th>Interés</th><th style="color:#93C5FD;">Descuento</th><th style="color:var(--red);">Atraso</th><th>Total</th><th>Estado</th><th></th>'
       +'</tr></thead><tbody>';
     rows.forEach(function(r){
       var fechaDisplay=r.fecha?fmtDate(r.fecha):'';
@@ -2370,10 +2338,8 @@ function renderResumen(){
         +'<td style="font-size:12px;">'+fechaDisplay+'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;">'+fmt(r.capital)+'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;color:var(--green);">'+fmt(r.interes)+'</td>'
-        +'<td style="font-family:DM Mono,monospace;text-align:right;color:var(--red);font-size:12px;">'
-        +(r.atraso>0?(r.atrDetenido?'⏹ '+fmt(r.atraso):fmt(r.atraso)+' ('+r.atrDias+'d)'):'—')
-        +'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;color:var(--blue-mid);">'+(r.descuento>0?'−'+fmt(r.descuento):'—')+'</td>'
+        +'<td style="font-family:DM Mono,monospace;text-align:right;color:var(--red);">'+(r.atraso>0?'+'+fmt(r.atraso):'—')+'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;font-weight:700;">'+fmt(r.total)+'</td>'
         +'<td style="text-align:center;font-size:11px;color:'+statusColor+';">'+statusLabel+'</td>'
         +'<td style="text-align:center;"><button onclick="deleteLoanFromResumen(\''+r.loanId+'\')" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;">🗑</button></td>'
@@ -2383,9 +2349,9 @@ function renderResumen(){
       +'<td colspan="3" style="text-align:right;font-size:12px;">TOTALES</td>'
       +'<td style="text-align:right;font-family:DM Mono,monospace;">'+fmt(totalCap)+'</td>'
       +'<td style="text-align:right;font-family:DM Mono,monospace;color:var(--green);">'+fmt(totalInt)+'</td>'
-      +(totalAtr>0?'<td style="text-align:right;font-family:DM Mono,monospace;color:var(--red);font-weight:700;">'+fmt(totalAtr)+'</td>':'<td style="text-align:center;color:var(--muted);">—</td>')
       +'<td style="text-align:right;font-family:DM Mono,monospace;color:var(--blue-mid);">'+(totalDesc>0?'−'+fmt(totalDesc):'—')+'</td>'
-      +'<td style="text-align:right;font-family:DM Mono,monospace;font-weight:700;">'+fmt(totalTot)+'</td>'
+      +'<td style="text-align:right;font-family:DM Mono,monospace;color:var(--red);">'+(totalAtr>0?'+'+fmt(totalAtr):'—')+'</td>'
+      +'<td style="text-align:right;font-family:DM Mono,monospace;">'+fmt(totalTot)+'</td>'
       +'<td></td><td></td>'
       +'</tr>';
     html+='</tbody></table></div>';
@@ -2404,6 +2370,13 @@ function deleteLoanFromResumen(loanId){
   var payments=DB.payments.filter(function(p){return String(p.prestamo_id)!==String(loanId);});
   DB.payments=payments;
   var ov=DB.overrides;delete ov[loanId];DB.overrides=ov;
+  // Limpiar alertas huérfanas del préstamo eliminado
+  var loan_del=DB.loans; // ya fue removido arriba
+  Object.keys(ALERTS).forEach(function(k){if(k.indexOf(loanId+'__')===0){delete ALERTS[k];}});
+  saveAlerts();
+  var schNotifs=JSON.parse(localStorage.getItem('pa_schnotifs')||'[]');
+  schNotifs=schNotifs.filter(function(n){return String(n.lid)!==String(loanId);});
+  localStorage.setItem('pa_schnotifs',JSON.stringify(schNotifs));
   showNotif('✓ Préstamo eliminado');
   renderResumen();
   renderMain();
@@ -2411,11 +2384,11 @@ function deleteLoanFromResumen(loanId){
 function downloadResumen(){
   var rows=getResumenData();
   if(!rows.length){showNotif('Sin datos para descargar');return;}
-  var csv='Cliente,Año,Mes,Día,Capital,Interés,Descuento,Total,Concepto\n';
+  var csv='Cliente,Año,Mes,Día,Capital,Interés,Descuento,Atraso,Total,Concepto\n';
   rows.forEach(function(r){
     var d=r.fecha?r.fecha.substring(8,10):'';
     var mLbl=r.m?MESES[parseInt(r.m)]||r.m:'';
-    csv+='"'+r.nombre+'","'+r.y+'","'+mLbl+'","'+d+'","'+r.capital+'","'+r.interes+'","'+r.descuento+'","'+r.total+'","'+r.concepto+'"\n';
+    csv+='"'+r.nombre+'","'+r.y+'","'+mLbl+'","'+d+'","'+r.capital+'","'+r.interes+'","'+r.descuento+'","'+(r.atraso||0)+'","'+r.total+'","'+r.concepto+'"\n';
   });
   var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   var url=URL.createObjectURL(blob);
@@ -2429,8 +2402,8 @@ function sendResumenWA(){
   if(phone.length<12){showNotif('Agrega tu WhatsApp en configuración');return;}
   var rows=getResumenData();
   if(!rows.length){showNotif('Sin datos para enviar');return;}
-  var totalCap=0,totalInt=0,totalAtr=0,totalDesc=0,totalTot=0;
-  rows.forEach(function(r){totalCap+=r.capital;totalInt+=r.interes;totalAtr+=(r.atraso||0);totalDesc+=r.descuento;totalTot+=r.total;});
+  var totalCap=0,totalInt=0,totalDesc=0,totalTot=0;
+  rows.forEach(function(r){totalCap+=r.capital;totalInt+=r.interes;totalDesc+=r.descuento;totalTot+=r.total;});
   var filterY=document.getElementById('res-year').value;
   var filterM=document.getElementById('res-month').value;
   var filterC=document.getElementById('res-client').value;
