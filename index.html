@@ -288,7 +288,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
       <label class="fl">Tipo de pago</label>
       <select class="fi fsel" id="pr-freq" onchange="propFreqChange()">
         <option value="daily_meter">Diario corriente ($15 x $500/día)</option>
-        <option value="daily_fixed">Diario fijo (% interés)</option>
+        <option value="daily_fixed">Fijo (% interés)</option>
         <option value="weekly">Semanal</option>
         <option value="biweekly" selected>Quincenal</option>
         <option value="monthly">Mensual</option>
@@ -330,7 +330,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
       <label class="fl">Tipo de pago</label>
       <select class="fi fsel" id="l-freq" onchange="loanFreqChange()">
         <option value="daily_meter">Diario corriente ($15 x $500 por día)</option>
-        <option value="daily_fixed">Préstamo fijo (% interés + fecha de pago)</option>
+        <option value="daily_fixed">Fijo (% interés)</option>
         <option value="weekly">Semanal</option>
         <option value="biweekly" selected>Quincenal</option>
         <option value="monthly">Mensual</option>
@@ -981,13 +981,12 @@ function sendWA(lid,idx){
     var loan=DB.loans.find(function(l){return String(l.id)===String(lid);});
     var sched=getSched(loan);var p=sched[idx];
     var abonado=p.abonado||0;var restante=Math.max(0,p.amount-abonado);
-    msg='Hola '+cl.nombre+', te recuerdo el pago '+(idx+1)+' de '+sched.length
-      +' de tu préstamo "'+loan.concepto+'"'
-      +' con vencimiento el '+fmtDate(p.date)+'.'
+    msg='Hola '+cl.nombre+', hoy es tu día de pago '+(idx+1)+' de '+sched.length
+      +' de tu préstamo con vencimiento el '+fmtDate(p.date)+'.'
       +' Monto: '+fmt(p.amount)+(abonado>0?' (abonado: '+fmt(abonado)+', pendiente: '+fmt(restante)+')':'')
-      +'. Por favor coordina tu pago. Gracias.';
+      +'. Quedo pendiente. Gracias.';
   }else{
-    msg='Hola '+cl.nombre+', te recuerdo que tienes un saldo pendiente de '+fmt(S._total)+'. Por favor contáctame. Gracias.';
+    msg='Hola '+cl.nombre+', te recuerdo que tienes un saldo pendiente de '+fmt(S._total)+'. Quedo en espera. Gracias.';
   }
   window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
 }
@@ -1141,19 +1140,19 @@ function calcLoanPreview(){
     var dAmt=parseFloat(document.getElementById('l-amount').value)||0;
     var dPct=parseFloat(document.getElementById('l-interest').value)||0;
     var dPay=document.getElementById('l-fixed-paydate').value;
-    var dDays=dPay?daysBetween(todayStr(),dPay)+1:1;
     var dInter=Math.round(dAmt*dPct/100*100)/100;
     var dTotal=dAmt+dInter;
     if(dPay){
+      var dDays=daysBetween(todayStr(),dPay)+1;
       document.getElementById('l-fixed-days-info').style.display='';
-      document.getElementById('l-fixed-days-info').textContent='Días desde hoy (día 1) hasta '+fmtDate(dPay)+': '+dDays+' días';
+      document.getElementById('l-fixed-days-info').textContent='Días desde hoy hasta '+fmtDate(dPay)+': '+dDays+' días';
     }else{
       document.getElementById('l-fixed-days-info').style.display='none';
     }
     document.getElementById('l-prev').textContent='Capital: '+fmt(dAmt)+'\nInterés ('+dPct+'%): '+fmt(dInter)+'\nTotal a pagar: '+fmt(dTotal)+(dPay?' · Fecha: '+fmtDate(dPay):'');
     return;
   }
-  var res=computePriceBreakdown(amt,pct,freq==='daily_fixed'?'daily':freq,n,fd);
+  var res=computePriceBreakdown(amt,pct,freq,n,fd);
   var interestTotal=Math.round((res.interest+res.proration)*100)/100;
   var txt='Capital: '+fmt(res.base);
   if(freq==='daily_fixed'){
@@ -1196,22 +1195,17 @@ function saveLoan(){
     saveOv(loanId,0,{date:payDate,amount:total,concept:con+' ('+dias+' días × '+fmt(dailyCharge)+')'});
 
   }else if(freq==='daily_fixed'){
-    // Fixed loan: 1 pago, capital + % interest, single paydate
+    // Fixed loan: 1 pago, capital + % interés fijo, single paydate
     var pct=parseFloat(document.getElementById('l-interest').value)||0;
     var n=1;
     var fd=document.getElementById('l-fixed-paydate').value;
     if(!fd){showNotif('Selecciona la fecha de pago');return;}
-    var res=computePriceBreakdown(amt,pct,'daily',n,fd);
+    var fixedInter=Math.round(amt*pct/100*100)/100;
+    var fixedTotal=amt+fixedInter;
     loans.push({id:loanId,cliente_id:cid,concepto:con,monto:amt,interes:pct,num_pagos:n,
-      frecuencia:'daily_fixed',first_date:fd,proration:res.proration,fecha_creacion:todayStr()});
+      frecuencia:'daily_fixed',first_date:fd,proration:0,fecha_creacion:todayStr()});
     DB.loans=loans;
-    var perPay=Math.floor((res.total/n)*100)/100;
-    for(var i=0;i<n;i++){
-      var inp=document.getElementById('l-dd-'+i);
-      var dv=inp&&inp.value?inp.value:calcDateFromFirst(fd,'daily',i);
-      var a2=i<n-1?perPay:Math.round((res.total-perPay*(n-1))*100)/100;
-      saveOv(loanId,i,{date:dv,amount:a2});
-    }
+    saveOv(loanId,0,{date:fd,amount:fixedTotal});
 
   }else{
     // Standard weekly/biweekly/monthly
@@ -1609,29 +1603,32 @@ function calcProp(){
   // days for daily_fixed: today(day1) to paydate
   var fixedDays=1;
   if(isFixed&&paydate){
-    fixedDays=daysBetween(todayStr(),paydate)+1; // today=day1
+    fixedDays=daysBetween(todayStr(),paydate)+1;
     var di=document.getElementById('pr-days-info');
-    di.textContent='Días desde hoy hasta la fecha de pago (día 1 = hoy): '+fixedDays+' días';
+    di.textContent='Días desde hoy hasta la fecha de pago: '+fixedDays+' días';
     di.style.display='';
   }else if(isFixed){
     var di=document.getElementById('pr-days-info');
     di.style.display='none';
   }
-  var res=computePriceBreakdown(amt,pct,isMeter?'daily':isFixed?'daily':freq,n,fd);
+  // Para daily_fixed: interés siempre fijo = monto * pct/100, sin prorrateo ni cálculo por días
+  var fixedInter=Math.round(amt*pct/100*100)/100;
+  var fixedTotal=amt+fixedInter;
+  var res=computePriceBreakdown(amt,pct,isMeter?'daily':freq,n,fd);
   var amounts=[];
   if(isMeter){
     // no amounts list needed
   }else if(isFixed){
-    amounts=[res.total];
+    amounts=[fixedTotal];
   }else{
     var perPay=Math.floor((res.total/n)*100)/100;for(var j=0;j<n-1;j++)amounts.push(perPay);amounts.push(Math.round((res.total-perPay*(n-1))*100)/100);
   }
   var dates=isFixed&&paydate?[paydate]:(fd?[fd]:[]);
   if(!isMeter&&!isFixed) for(var k=1;k<n;k++) dates.push(calcDateFromFirst(fd,freq,k));
   var dc=Math.round(amt/500)*15;
-  document.getElementById('pr-total').textContent=isMeter?fmt(amt+dc):fmt(res.total);
+  document.getElementById('pr-total').textContent=isMeter?fmt(amt+dc):isFixed?fmt(fixedTotal):fmt(res.total);
 
-  // Show Capital, Interés (merged with proration), Total — NO percentages, NO proration label
+  // Show Capital, Interés, Total
   var rows='';
   if(freq==='daily_meter'){
     var dc=Math.round(amt/500)*15;
@@ -1643,13 +1640,12 @@ function calcProp(){
       +'<div class="prop-row" style="font-size:14px;font-weight:700;border-top:2px solid var(--border);">'
       +'<span class="prop-row-lbl">Total si paga en '+mDays+' día'+(mDays>1?'s':'')+'</span><span class="prop-row-val">'+fmt(amt+dc*mDays)+'</span></div>';
   }else{
-    var interestBase=Math.round(res.interest*100)/100;
-    rows='<div class="prop-row"><span class="prop-row-lbl">Capital</span><span class="prop-row-val">'+fmt(res.base)+'</span></div>';
+    rows='<div class="prop-row"><span class="prop-row-lbl">Capital</span><span class="prop-row-val">'+fmt(amt)+'</span></div>';
     if(isFixed){
-      rows+='<div class="prop-row"><span class="prop-row-lbl">Interés ('+pct+'%)</span><span class="prop-row-val">'+fmt(interestBase)+'</span></div>';
+      rows+='<div class="prop-row"><span class="prop-row-lbl">Interés ('+pct+'%)</span><span class="prop-row-val">'+fmt(fixedInter)+'</span></div>';
       rows+='<div class="prop-row" style="font-size:14px;font-weight:700;border-top:2px solid var(--border);">'
         +'<span class="prop-row-lbl">Total a pagar'+(fixedDays>1?' ('+fixedDays+' días)':'')+'</span>'
-        +'<span class="prop-row-val">'+fmt(res.total)+'</span></div>';
+        +'<span class="prop-row-val">'+fmt(fixedTotal)+'</span></div>';
     }else{
       rows+='<div class="prop-row"><span class="prop-row-lbl">Interés</span><span class="prop-row-val">'+fmt(interestBase)+'</span></div>';
       if(res.proration>0.009){
@@ -1690,7 +1686,7 @@ function calcProp(){
       +clausulas;
   }else if(isFixed){
     rules='📋 Condiciones del préstamo fijo:\n'
-      +'• Total a pagar: '+fmt(res.total)+(fixedDays>1?' en '+fixedDays+' día'+(fixedDays>1?'s':''):'')+'\n'
+      +'• Total a pagar: '+fmt(fixedTotal)+(fixedDays>1?' en '+fixedDays+' día'+(fixedDays>1?'s':''):'')+'\n'
       +'• Fecha de pago: '+(paydate?fmtDate(paydate):'por definir')
       +clausulas;
   }else{
@@ -1726,12 +1722,13 @@ function sendPropWA(){
   var isFixed=(freq==='daily_fixed');
   var n=(isMeter||isFixed)?1:parseInt(document.getElementById('pr-npay').value)||1;
   var fd=isFixed?document.getElementById('pr-paydate').value:(isMeter?'':document.getElementById('pr-firstdate').value);
-  var res=computePriceBreakdown(amt,pct,isMeter?'daily':isFixed?'daily':freq,n,fd);
+  var res=computePriceBreakdown(amt,pct,isMeter?'daily':freq,n,fd);
   var dc=Math.round(amt/500)*15;
   var fixedDays=isFixed&&fd?daysBetween(todayStr(),fd)+1:1;
+  var fixedInter=isFixed?Math.round(amt*pct/100*100)/100:0;
+  var fixedTotal=isFixed?amt+fixedInter:0;
   var msg='';
   if(isMeter){
-    // Req 7: greeting for daily_meter
     msg='Buen día, envío la propuesta para un préstamo de '+fmt(amt)+' para pago por día, quedo pendiente de confirmación.\n\n';
     msg+='📅 Tipo: Préstamo por día corriente\n';
     msg+='💰 Capital: '+fmt(amt)+'\n';
@@ -1741,28 +1738,18 @@ function sendPropWA(){
     [1,3,5,7,10,15,30].forEach(function(d){msg+='  '+d+' día'+(d>1?'s':'')+': '+fmt(amt+dc*d)+'\n';});
     msg+='\n📌 Condiciones:\n'
       +'• Cobro: $15 por cada $500 por día\n'
-      +'• Día 1 = el mismo día del préstamo\n'
-      +'• El primer pago aplica en la primer semana o quincena inmediata\n'
-      +'• Se considera semana de L-D siendo domingo día de pago\n'
-      +'• Se considera quincena los días 15 y 30 ó 31 según calendario\n'
-      +'• Se considera mes el final del mes inmediato al préstamo (30 ó 31)\n'
-      +'• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n'
-      +'• No se realizará ajuste por pronto pago';
+      +'• Día 1 = el mismo día del préstamo';
   }else if(isFixed){
-    msg='Buen día, envío la propuesta para un préstamo de '+fmt(amt)+' a pago fijo, quedo pendiente de confirmación.\n\n';
+    msg='Buen día, envío la propuesta para un préstamo de '+fmt(amt)+' en un solo pago, quedo pendiente de confirmación.\n\n';
     msg+='📅 Tipo: Préstamo fijo\n';
-    msg+='💵 Total a pagar: '+fmt(res.total)+'\n';
+    msg+='💵 Total a pagar: '+fmt(fixedTotal)+'\n';
     if(fd) msg+='📆 Fecha de pago: '+fmtDate(fd)+(fixedDays>1?' ('+fixedDays+' días)':'')+'\n';
     msg+='\n📌 Condiciones:\n'
-      +'• El primer pago aplica en la primer semana o quincena inmediata\n'
-      +'• En caso de 1 pago, se cuentan los días a partir del día del préstamo\n'
-      +'• Se considera semana de L-D siendo domingo día de pago\n'
-      +'• Se considera quincena los días 15 y 30 ó 31 según calendario\n'
-      +'• Se considera mes el final del mes inmediato al préstamo (30 ó 31)\n'
-      +'• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n'
+      +'• Se contarán los días a partir del día del préstamo\n'
+      +'• En caso de no abonar en la fecha estipulada, la penalización es de $50.00 por día de atraso\n'
       +'• No se realizará ajuste por pronto pago';
   }else{
-    // Weekly / biweekly / monthly — req 8: only type, num payments, amount per payment
+    // Weekly / biweekly / monthly
     var freqNombre={weekly:'Semanal',biweekly:'Quincenal',monthly:'Mensual'}[freq]||freq;
     var freqLabelPl={weekly:'semanas',biweekly:'quincenas',monthly:'meses'}[freq]||freq;
     msg='Buen día, envío la propuesta para un préstamo de '+fmt(amt)+' para pagar en '+n+' '+freqLabelPl+', quedo pendiente de confirmación.\n\n';
@@ -1779,7 +1766,7 @@ function sendPropWA(){
     }
     msg+='\n📌 Condiciones:\n'
       +'• El primer pago aplica en la primer semana o quincena inmediata\n'
-      +'• En caso de 1 pago, se cuentan los días a partir del día del préstamo\n'
+      +'• Se considera el conteo de días a partir del día del préstamo\n'
       +'• Se considera semana de L-D siendo domingo día de pago\n'
       +'• Se considera quincena los días 15 y 30 ó 31 según calendario\n'
       +'• Se considera mes el final del mes inmediato al préstamo (30 ó 31)\n'
