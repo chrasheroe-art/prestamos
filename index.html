@@ -1678,23 +1678,24 @@ function calcProp(){
   var freqLabels={daily_meter:'por día corriente',daily_fixed:'fijo',weekly:'semanal',biweekly:'quincenal',monthly:'mensual'};
   var freqLbl=freqLabels[freq]||freq;
   var rules='';
-  var clausulas='\n• El primer pago aplica en la primer semana o quincena inmediata\n• En caso de 1 pago, se cuentan los días a partir del día del préstamo\n• Se considera semana de L-D siendo domingo día de pago\n• Se considera quincena los días 15 y 30 ó 31 según calendario\n• Se considera mes el final del mes inmediato al préstamo (30 ó 31)\n• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n• No se realizará ajuste por pronto pago';
   if(isMeter){
-    rules='📋 Condiciones del préstamo por día corriente:\n'
-      +'• Se cobran $15 por cada $500, empezando el mismo día del préstamo (día 1)\n'
-      +'• El interés corre cada día hasta que el cliente liquide\n'
-      +'• Pago: '+fmt(dc)+' por día'
-      +clausulas;
+    rules='📌 Condiciones:\n'
+      +'• Cobro: $15 por cada $500 por día\n'
+      +'• Día 1 = el mismo día del préstamo';
   }else if(isFixed){
-    rules='📋 Condiciones del préstamo fijo:\n'
-      +'• Total a pagar: '+fmt(fixedTotal)+(fixedDays>1?' en '+fixedDays+' día'+(fixedDays>1?'s':''):'')+'\n'
-      +'• Fecha de pago: '+(paydate?fmtDate(paydate):'por definir')
-      +clausulas;
+    rules='📌 Condiciones:\n'
+      +'• Se contarán los días a partir del día del préstamo\n'
+      +'• En caso de no abonar en la fecha estipulada, la penalización es de $50.00 por día de atraso\n'
+      +'• No se realizará ajuste por pronto pago';
   }else{
-    var freqCond={weekly:'semanal (domingo)',biweekly:'quincenal (días 15 y 30/31)',monthly:'mensual (último día del mes)'}[freq]||freqLbl;
-    rules='📋 Condiciones del préstamo:\n'
-      +'• Pago '+freqCond+': '+fmt(res.total/n)+' × '+n+' pago'+(n>1?'s':'')+'\n'
-      +clausulas.slice(1);
+    rules='📌 Condiciones:\n'
+      +'• El primer pago aplica en la primer semana o quincena inmediata\n'
+      +'• Se considera el conteo de días a partir del día del préstamo\n'
+      +'• Se considera semana de L-D siendo domingo día de pago\n'
+      +'• Se considera quincena los días 15 y 30 ó 31 según calendario\n'
+      +'• Se considera mes el final del mes inmediato al préstamo (30 ó 31)\n'
+      +'• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n'
+      +'• No se realizará ajuste por pronto pago';
   }
   document.getElementById('pr-rules').style.whiteSpace='pre-line';
   document.getElementById('pr-rules').textContent=rules;
