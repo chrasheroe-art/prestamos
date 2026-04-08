@@ -1647,6 +1647,7 @@ function calcProp(){
         +'<span class="prop-row-lbl">Total a pagar'+(fixedDays>1?' ('+fixedDays+' días)':'')+'</span>'
         +'<span class="prop-row-val">'+fmt(fixedTotal)+'</span></div>';
     }else{
+      var interestBase=Math.round(res.interest*100)/100;
       rows+='<div class="prop-row"><span class="prop-row-lbl">Interés</span><span class="prop-row-val">'+fmt(interestBase)+'</span></div>';
       if(res.proration>0.009){
         rows+='<div class="prop-row prop-row-proration"><span class="prop-row-lbl" style="color:var(--orange)">⚡ Prorrateo '+res.extraDays+' días extra</span><span class="prop-row-val" style="color:var(--orange)">+'+fmt(res.proration)+'</span></div>';
