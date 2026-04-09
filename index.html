@@ -278,10 +278,10 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 <!-- PROPUESTAS -->
 <div class="prop-view" id="prop-view">
   <div class="prop-h">
-    <button class="prop-back" onclick="closeProp()">← Volver</button>
     <div style="font-size:22px;font-weight:700;color:#fff;">🧮 Simulador de propuesta</div>
     <div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:4px;">Calcula y envía la propuesta por WhatsApp</div>
   </div>
+  <button onclick="closeProp()" style="position:fixed;bottom:80px;left:16px;z-index:300;background:var(--blue);color:#fff;border:none;border-radius:28px;padding:12px 20px;font-size:14px;font-weight:700;font-family:inherit;box-shadow:0 4px 16px rgba(30,58,95,.4);cursor:pointer;">← Volver</button>
   <div class="prop-body">
     <div class="fg"><label class="fl">Monto a prestar *</label><input class="fi" id="pr-amount" type="number" placeholder="0" min="0" oninput="calcProp()"></div>
     <div class="fg">
@@ -1687,12 +1687,21 @@ function calcProp(){
       +'• Se contarán los días a partir del día del préstamo\n'
       +'• En caso de no abonar en la fecha estipulada, la penalización es de $50.00 por día de atraso\n'
       +'• No se realizará ajuste por pronto pago';
-  }else{
+  }else if(freq==='weekly'){
     rules='📌 Condiciones:\n'
-      +'• El primer pago aplica en la primer semana o quincena inmediata\n'
-      +'• Se considera el conteo de días a partir del día del préstamo\n'
+      +'• El primer pago aplica en la primer semana inmediata\n'
       +'• Se considera semana de L-D siendo domingo día de pago\n'
+      +'• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n'
+      +'• No se realizará ajuste por pronto pago';
+  }else if(freq==='biweekly'){
+    rules='📌 Condiciones:\n'
+      +'• El primer pago aplica en la primer quincena inmediata\n'
       +'• Se considera quincena los días 15 y 30 ó 31 según calendario\n'
+      +'• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n'
+      +'• No se realizará ajuste por pronto pago';
+  }else if(freq==='monthly'){
+    rules='📌 Condiciones:\n'
+      +'• El primer pago aplica en el primer mes inmediato\n'
       +'• Se considera mes el final del mes inmediato al préstamo (30 ó 31)\n'
       +'• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n'
       +'• No se realizará ajuste por pronto pago';
@@ -1766,14 +1775,25 @@ function sendPropWA(){
         msg+='  Pago '+(k+1)+': '+fmtDate(pd)+' — '+fmt(pa)+'\n';
       }
     }
-    msg+='\n📌 Condiciones:\n'
-      +'• El primer pago aplica en la primer semana o quincena inmediata\n'
-      +'• Se considera el conteo de días a partir del día del préstamo\n'
-      +'• Se considera semana de L-D siendo domingo día de pago\n'
-      +'• Se considera quincena los días 15 y 30 ó 31 según calendario\n'
-      +'• Se considera mes el final del mes inmediato al préstamo (30 ó 31)\n'
-      +'• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n'
-      +'• No se realizará ajuste por pronto pago';
+    if(freq==='weekly'){
+      msg+='\n📌 Condiciones:\n'
+        +'• El primer pago aplica en la primer semana inmediata\n'
+        +'• Se considera semana de L-D siendo domingo día de pago\n'
+        +'• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n'
+        +'• No se realizará ajuste por pronto pago';
+    }else if(freq==='biweekly'){
+      msg+='\n📌 Condiciones:\n'
+        +'• El primer pago aplica en la primer quincena inmediata\n'
+        +'• Se considera quincena los días 15 y 30 ó 31 según calendario\n'
+        +'• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n'
+        +'• No se realizará ajuste por pronto pago';
+    }else if(freq==='monthly'){
+      msg+='\n📌 Condiciones:\n'
+        +'• El primer pago aplica en el primer mes inmediato\n'
+        +'• Se considera mes el final del mes inmediato al préstamo (30 ó 31)\n'
+        +'• En caso de no abonar en la fecha estipulada, penalización de $50.00 por día de atraso\n'
+        +'• No se realizará ajuste por pronto pago';
+    }
   }
   window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
 }
