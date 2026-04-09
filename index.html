@@ -877,59 +877,75 @@ function renderDPay(){
         var sched=getSched(loan);
         var u=dateUrg(p.date,p.status);
         var abonado=p.abonado||0;
-        var restante=Math.max(0,p.amount-abonado);
+        var descuento=p.descuento||0;
         var isPartial=p.status==='parcial';
         var pc=isPartial?' partial':u==='overdue'?' ov':u==='warning'?' wa':'';
         var ibg=isPartial?'var(--orange-light)':u==='overdue'?'var(--red-light)':u==='warning'?'var(--orange-light)':'var(--blue-light)';
         var ico=isPartial?'½':u==='overdue'?'⚠':'📋';
         var dc='pi-date'+(u==='overdue'?' red':u==='warning'?' orange':'');
-        var pill=isPartial?'<span class="pill p-orange">🔄 Abonado '+fmt(abonado)+' · Resta '+fmt(restante)+'</span>'
+        var pill=isPartial?'<span class="pill p-orange">🔄 Abonado '+fmt(abonado)+'</span>'
           :u==='overdue'?'<span class="pill p-red">⚠ Vencido</span>'
           :u==='warning'?'<span class="pill p-orange">🕐 Próximo</span>'
           :'<span class="pill p-blue">Pendiente</span>';
-        // Compute capital/interest split per payment for display
+
+        // Capital e interés por pago
         var loan_n=loan.num_pagos||1;
         var pay_cap=Math.round((loan.monto||0)/loan_n*100)/100;
         var pay_int=Math.round(Math.max(0,p.amount-pay_cap)*100)/100;
+
         // Atraso
         var atr=calcAtraso(loan,i,p);
-        var totalConAtraso=Math.round((p.amount+atr.monto)*100)/100;
-        // Desglose capital + interés
-        var breakdownHtml='';
-        if(p.amount>0.009){
-          if(pay_int>0.009){
-            breakdownHtml='<div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:DM Mono,monospace;white-space:nowrap;">'+fmt(pay_cap)+' <span style="color:var(--green);">+'+fmt(pay_int)+'</span>';
-          } else {
-            breakdownHtml='<div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:DM Mono,monospace;">Capital: '+fmt(pay_cap);
-          }
-          if(atr.monto>0){
-            breakdownHtml+=' <span style="color:var(--red);">+'+fmt(atr.monto)+'</span>';
-          }
-          breakdownHtml+='</div>';
-        }
-        // Fila de atraso editable (solo si vencido o tiene atraso)
-        var atrasoRowHtml='';
-        if(atr.dias>0||u==='overdue'){
-          var detBtnLabel=atr.detenido?'▶ Reanudar':'⏹ Detener';
-          var detBtnStyle=atr.detenido?'background:var(--green-light);color:var(--green);':'background:var(--red-light);color:var(--red);';
-          atrasoRowHtml='<div style="margin-top:8px;padding:8px 10px;background:var(--red-light);border-radius:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-            +'<span style="font-size:11px;color:var(--red);font-weight:700;flex:0 0 auto;">⏰ Atraso:</span>'
-            +'<input type="number" min="0" value="'+atr.dias+'" style="width:54px;padding:3px 7px;font-size:12px;border:1px solid var(--red-light);border-radius:6px;font-family:DM Mono,monospace;text-align:center;background:#fff;color:var(--red);font-weight:700;" '
-            +'onchange="saveAtrasoOverride(\''+loan.id+'\','+i+',parseInt(this.value))" /> '
-            +'<span style="font-size:11px;color:var(--red);">días × $50 = <strong>'+fmt(atr.monto)+'</strong></span>'
-            +'<button onclick="toggleAtrasoStop(\''+loan.id+'\','+i+')" style="'+detBtnStyle+'border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:auto;">'+detBtnLabel+'</button>'
-            +'</div>';
-        }
-        var displayTotal=atr.monto>0?totalConAtraso:p.amount;
-        var restanteConAtraso=Math.round((restante+atr.monto)*100)/100;
-        var amtHtml=isPartial
-          ?'<div class="pi-amt orange" style="font-size:12px;line-height:1.3;text-align:right;">'+fmt(restanteConAtraso)+'<br><span style="color:var(--muted);font-size:10px;">de '+fmt(displayTotal)+'</span>'+breakdownHtml+'</div>'
-          :'<div style="text-align:right;"><div class="pi-amt'+(u==='overdue'?' red':u==='warning'?' orange':'')+(atr.monto>0?' red':'')+'">'+fmt(displayTotal)+'</div>'+breakdownHtml+'</div>';
+
+        // Total final = amount + atraso - descuento
+        var totalFinal=Math.max(0,Math.round((p.amount+atr.monto-descuento)*100)/100);
+        var restante=Math.max(0,totalFinal-abonado);
+
+        // Fórmula: capital + interés + atraso - descuento = total
+        var breakdownHtml='<div style="font-size:11px;font-family:DM Mono,monospace;margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:3px;">'
+          +'<span style="color:var(--muted);">'+fmt(pay_cap)+'</span>'
+          +'<span style="color:var(--muted);font-size:10px;">+</span>'
+          +'<span style="color:var(--green);">'+fmt(pay_int)+'</span>'
+          +'<span style="color:var(--muted);font-size:10px;">+</span>'
+          +'<span style="color:var(--red);">'+fmt(atr.monto)+'</span>'
+          +'<span style="color:var(--muted);font-size:10px;">−</span>'
+          +'<span style="color:var(--blue-mid);">'+fmt(descuento)+'</span>'
+          +'<span style="color:var(--muted);font-size:10px;">=</span>'
+          +'<span style="color:var(--text);font-weight:700;">'+fmt(totalFinal)+'</span>'
+          +'</div>';
+
+        // Monto en esquina superior derecha
+        var amtColor=u==='overdue'?'var(--red)':u==='warning'?'var(--orange)':'var(--text)';
+        var amtHtml='<div style="text-align:right;">'
+          +'<div class="pi-amt" style="color:'+amtColor+';">'+fmt(isPartial?restante:totalFinal)+'</div>'
+          +(isPartial?'<div style="font-size:10px;color:var(--muted);">de '+fmt(totalFinal)+'</div>':'')
+          +'</div>';
+
+        // Fila de atraso (siempre visible)
+        var detBtnLabel=atr.detenido?'▶ Reanudar':'⏹ Detener';
+        var detBtnStyle=atr.detenido?'background:var(--green-light);color:var(--green);':'background:var(--red-light);color:var(--red);';
+        var atrasoRowHtml='<div style="margin-top:8px;padding:8px 10px;background:var(--red-light);border-radius:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+          +'<span style="font-size:11px;color:var(--red);font-weight:700;flex:0 0 auto;">⏰ Atraso:</span>'
+          +'<input type="number" min="0" value="'+atr.dias+'" style="width:54px;padding:3px 7px;font-size:12px;border:1px solid var(--red-light);border-radius:6px;font-family:DM Mono,monospace;text-align:center;background:#fff;color:var(--red);font-weight:700;" '
+          +'onchange="saveAtrasoOverride(\''+loan.id+'\','+i+',parseInt(this.value))" />'
+          +'<span style="font-size:11px;color:var(--red);">días × $50 = <strong>'+fmt(atr.monto)+'</strong></span>'
+          +(atr.dias>0||u==='overdue'?'<button onclick="toggleAtrasoStop(\''+loan.id+'\','+i+')" style="'+detBtnStyle+'border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:auto;">'+detBtnLabel+'</button>':'')
+          +'</div>';
+
+        // Fila de descuento (siempre visible)
+        var descRowHtml='<div style="margin-top:6px;padding:8px 10px;background:var(--blue-light);border-radius:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+          +'<span style="font-size:11px;color:var(--blue-mid);font-weight:700;flex:0 0 auto;">🏷 Descuento:</span>'
+          +'<input type="number" min="0" value="'+descuento+'" style="width:80px;padding:3px 7px;font-size:12px;border:1px solid var(--blue-light);border-radius:6px;font-family:DM Mono,monospace;text-align:center;background:#fff;color:var(--blue-mid);font-weight:700;" '
+          +'onchange="saveDescuento(\''+loan.id+'\','+i+',this.value)" />'
+          +'<span style="font-size:11px;color:var(--blue-mid);">aplicado al total</span>'
+          +'</div>';
+
         html+='<div class="pi'+pc+'">'
           +'<div class="pi-top"><div class="pi-ico" style="background:'+ibg+'">'+ico+'</div>'
           +'<div class="pi-info"><div class="pi-name">'+(p.concept||loan.concepto)+' · Pago '+(i+1)+'/'+sched.length+'</div>'
           +'<div class="'+dc+'">'+fmtDate(p.date)+'</div>'+pill+'</div>'+amtHtml+'</div>'
+          +breakdownHtml
           +atrasoRowHtml
+          +descRowHtml
           +'<div class="pi-actions">'
           +'<button class="pi-btn pbb" onclick="openEditPay(\''+loan.id+'\','+i+')">✏ Editar</button>'
           +'<button class="pi-btn pbg" onclick="openAbono(\''+loan.id+'\','+i+')">+ Abono</button>'
@@ -1015,7 +1031,8 @@ function getSched(loan){
     var elimOv=o.eliminado||false;
     var status=o.status||(abonado>=baseAmt-0.009&&baseAmt>0?'pagado':abonado>0?'parcial':'pendiente');
     // eliminado counts as pagado for pending list (it's gone), but we store it
-    result.push({date:o.date||calcDateFromFirst(loan.first_date,loan.frecuencia||'biweekly',i),amount:baseAmt,concept:o.concept||loan.concepto,status:status,notes:o.notes||'',abonado:abonado});
+    var descuento=o.descuento!==undefined?o.descuento:0;
+    result.push({date:o.date||calcDateFromFirst(loan.first_date,loan.frecuencia||'biweekly',i),amount:baseAmt,concept:o.concept||loan.concepto,status:status,notes:o.notes||'',abonado:abonado,descuento:descuento});
   }
   return result;
 }
@@ -1029,7 +1046,7 @@ function remDebt(loan){
   sched.forEach(function(p,idx){
     if(p.status==='pagado') return;
     var a=calcAtraso(loan,idx,p);
-    total+=Math.max(0,p.amount-(p.abonado||0))+a.monto;
+    total+=Math.max(0,p.amount-(p.abonado||0))+a.monto-Math.max(0,p.descuento||0);
   });
   return total;
 }
@@ -1463,6 +1480,13 @@ function calcAtraso(loan, idx, p){
 function saveAtrasoOverride(lid,idx,dias){
   if(isNaN(dias)||dias<0) return;
   saveOv(lid,idx,{atraso_dias:dias});
+  refreshDetailHeader();
+  renderDPay();
+}
+function saveDescuento(lid,idx,val){
+  var desc=parseFloat(val)||0;
+  if(desc<0) desc=0;
+  saveOv(lid,idx,{descuento:desc});
   refreshDetailHeader();
   renderDPay();
 }
@@ -2304,14 +2328,15 @@ function getResumenData(){
       if(filterStatus&&pStatus!==filterStatus) return;
       var pay_int=Math.round(Math.max(0,p.amount-pay_cap)*100)/100;
       var atr=calcAtraso(l,pi,p);
-      var totalConAtr=Math.round((p.amount+atr.monto)*100)/100;
+      var desc=(p.descuento||0);
+      var totalConAtr=Math.round(Math.max(0,p.amount+atr.monto-desc)*100)/100;
       rows.push({
         fecha:fecha,y:y,m:m,
         nombre:nombre,
         concepto:l.concepto||'',
         capital:pay_cap,
         interes:pay_int,
-        descuento:(DB.overrides[l.id]&&DB.overrides[l.id][pi]&&DB.overrides[l.id][pi].descuento)||0,
+        descuento:desc,
         atraso:atr.monto,
         total:totalConAtr,
         status:pStatus,
