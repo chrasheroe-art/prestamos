@@ -403,11 +403,11 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
       <div class="fg" style="flex:1;"><label class="fl">Capital *</label><input class="fi" id="ep-capital" type="number" min="0" placeholder="0" oninput="updateEpTotal()"></div>
       <div class="fg" style="flex:1;"><label class="fl">Interés</label><input class="fi" id="ep-interest" type="number" min="0" placeholder="0" oninput="updateEpTotal()"></div>
     </div>
+    <div class="fg"><label class="fl" style="color:var(--red);">Atraso 🔴</label><input class="fi" id="ep-atraso" type="number" min="0" placeholder="0" oninput="updateEpTotal()" style="border-color:var(--red);"></div>
     <div class="fg"><label class="fl" style="color:var(--blue-mid);">Descuento 🔵</label><input class="fi" id="ep-descuento" type="number" min="0" placeholder="0" oninput="updateEpTotal()" style="border-color:var(--blue-mid);"></div>
-    <div id="ep-total-preview" style="background:var(--blue-light);border-radius:var(--rs);padding:10px 14px;margin-bottom:13px;font-size:14px;color:var(--blue);font-weight:700;display:none;"></div>
+    <div class="fg"><label class="fl" style="color:var(--purple);">Total abonado 🟣</label><input class="fi" id="ep-paid" type="number" min="0" placeholder="0" oninput="updateEpTotal()" style="border-color:var(--purple);"></div>
+    <div id="ep-total-preview" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:10px 14px;margin-bottom:13px;font-size:13px;font-weight:600;display:none;"></div>
     <input type="hidden" id="ep-amount">
-    <div class="fg"><label class="fl">Total abonado</label><input class="fi" id="ep-paid" type="number" min="0" placeholder="0" oninput="updateEpRemain()"></div>
-    <div id="ep-remain-info" style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:10px;padding-left:4px;"></div>
     <div class="fg"><label class="fl">Fecha de vencimiento</label><input class="fi" id="ep-date" type="date"></div>
     <div class="fg">
       <label class="fl">Estado</label>
@@ -900,7 +900,7 @@ function renderDPay(){
         var totalFinal=Math.max(0,Math.round((p.amount+atr.monto-descuento)*100)/100);
         var restante=Math.max(0,totalFinal-abonado);
 
-        // Fórmula: capital + interés + atraso - descuento = total
+        // Fórmula: capital + interés + atraso - descuento - abono = total restante
         var breakdownHtml='<div style="font-size:11px;font-family:DM Mono,monospace;margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:3px;">'
           +'<span style="color:var(--muted);">'+fmt(pay_cap)+'</span>'
           +'<span style="color:var(--muted);font-size:10px;">+</span>'
@@ -909,15 +909,17 @@ function renderDPay(){
           +'<span style="color:var(--red);">'+fmt(atr.monto)+'</span>'
           +'<span style="color:var(--muted);font-size:10px;">−</span>'
           +'<span style="color:var(--blue-mid);">'+fmt(descuento)+'</span>'
+          +'<span style="color:var(--muted);font-size:10px;">−</span>'
+          +'<span style="color:var(--purple);">'+fmt(abonado)+'</span>'
           +'<span style="color:var(--muted);font-size:10px;">=</span>'
-          +'<span style="color:var(--text);font-weight:700;">'+fmt(totalFinal)+'</span>'
+          +'<span style="color:var(--text);font-weight:700;">'+fmt(restante)+'</span>'
           +'</div>';
 
         // Monto en esquina superior derecha
         var amtColor=u==='overdue'?'var(--red)':u==='warning'?'var(--orange)':'var(--text)';
         var amtHtml='<div style="text-align:right;">'
-          +'<div class="pi-amt" style="color:'+amtColor+';">'+fmt(isPartial?restante:totalFinal)+'</div>'
-          +(isPartial?'<div style="font-size:10px;color:var(--muted);">de '+fmt(totalFinal)+'</div>':'')
+          +'<div class="pi-amt" style="color:'+amtColor+';">'+fmt(restante)+'</div>'
+          +(abonado>0?'<div style="font-size:10px;color:var(--muted);">de '+fmt(totalFinal)+'</div>':'')
           +'</div>';
 
         // Fila de atraso (siempre visible)
@@ -939,6 +941,13 @@ function renderDPay(){
           +'<span style="font-size:11px;color:var(--blue-mid);">aplicado al total</span>'
           +'</div>';
 
+        // Fila de abono (siempre visible)
+        var abonoRowHtml='<div style="margin-top:6px;padding:8px 10px;background:var(--purple-light);border-radius:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+          +'<span style="font-size:11px;color:var(--purple);font-weight:700;flex:0 0 auto;">💜 Abonado:</span>'
+          +'<span style="font-size:13px;color:var(--purple);font-weight:700;font-family:DM Mono,monospace;">'+fmt(abonado)+'</span>'
+          +(abonado>0?'<span style="font-size:11px;color:var(--purple);">· Resta: '+fmt(restante)+'</span>':'<span style="font-size:11px;color:var(--purple);opacity:.6;">sin abonos</span>')
+          +'</div>';
+
         html+='<div class="pi'+pc+'">'
           +'<div class="pi-top"><div class="pi-ico" style="background:'+ibg+'">'+ico+'</div>'
           +'<div class="pi-info"><div class="pi-name">'+(p.concept||loan.concepto)+' · Pago '+(i+1)+'/'+sched.length+'</div>'
@@ -946,6 +955,7 @@ function renderDPay(){
           +breakdownHtml
           +atrasoRowHtml
           +descRowHtml
+          +abonoRowHtml
           +'<div class="pi-actions">'
           +'<button class="pi-btn pbb" onclick="openEditPay(\''+loan.id+'\','+i+')">✏ Editar</button>'
           +'<button class="pi-btn pbg" onclick="openAbono(\''+loan.id+'\','+i+')">+ Abono</button>'
@@ -1381,6 +1391,9 @@ function openEditPay(lid,idx){
   document.getElementById('ep-concept').value=p.concept||loan.concepto;
   document.getElementById('ep-capital').value=cap;
   document.getElementById('ep-interest').value=inter;
+  var atrLoan=DB.loans.find(function(l){return String(l.id)===String(lid);});
+  var atrCalc=calcAtraso(atrLoan,idx,p);
+  document.getElementById('ep-atraso').value=atrCalc.monto||0;
   document.getElementById('ep-descuento').value=p.descuento||0;
   document.getElementById('ep-amount').value=p.amount;
   document.getElementById('ep-paid').value=p.abonado||0;
@@ -1395,24 +1408,27 @@ function openEditPay(lid,idx){
 function updateEpTotal(){
   var cap=parseFloat(document.getElementById('ep-capital').value)||0;
   var inter=parseFloat(document.getElementById('ep-interest').value)||0;
+  var atr=parseFloat(document.getElementById('ep-atraso').value)||0;
   var desc=parseFloat(document.getElementById('ep-descuento').value)||0;
-  var total=Math.round((cap+inter-desc)*100)/100;
-  if(total<0) total=0;
-  document.getElementById('ep-amount').value=total;
+  var paid=parseFloat(document.getElementById('ep-paid').value)||0;
+  var baseTotal=Math.round((cap+inter)*100)/100;
+  var total=Math.max(0,Math.round((baseTotal+atr-desc-paid)*100)/100);
+  document.getElementById('ep-amount').value=Math.max(0,Math.round((baseTotal+atr-desc)*100)/100);
   var prev=document.getElementById('ep-total-preview');
   if(cap>0){
     prev.style.display='';
-    var html=fmt(cap)+' <span style="font-weight:400;color:var(--blue-mid);">+</span> '+fmt(inter);
-    if(desc>0.009) html+=' <span style="font-weight:400;color:var(--blue-mid);">−</span> <span style="color:var(--blue-mid);">'+fmt(desc)+'</span>';
-    html+=' <span style="font-weight:400;color:var(--blue-mid);">=</span> <strong>'+fmt(total)+'</strong>';
-    prev.innerHTML=html;
+    prev.innerHTML='<span style="color:var(--muted);">'+fmt(cap)+'</span>'
+      +' <span style="color:var(--muted);font-size:11px;">+</span>'
+      +' <span style="color:var(--green);">'+fmt(inter)+'</span>'
+      +' <span style="color:var(--muted);font-size:11px;">+</span>'
+      +' <span style="color:var(--red);">'+fmt(atr)+'</span>'
+      +' <span style="color:var(--muted);font-size:11px;">−</span>'
+      +' <span style="color:var(--blue-mid);">'+fmt(desc)+'</span>'
+      +' <span style="color:var(--muted);font-size:11px;">−</span>'
+      +' <span style="color:var(--purple);">'+fmt(paid)+'</span>'
+      +' <span style="color:var(--muted);font-size:11px;">=</span>'
+      +' <strong style="color:var(--text);">'+fmt(total)+'</strong>';
   }else{prev.style.display='none';}
-  updateEpRemain();
-}
-function updateEpRemain(){
-  var amt=parseFloat(document.getElementById('ep-amount').value)||0;
-  var paid=parseFloat(document.getElementById('ep-paid').value)||0;
-  document.getElementById('ep-remain-info').textContent='Restante: '+fmt(Math.max(0,amt-paid));
 }
 function saveEditPay(){
   var lid=document.getElementById('ep-lid').value;
@@ -2329,7 +2345,9 @@ function getResumenData(){
       var pay_int=Math.round(Math.max(0,p.amount-pay_cap)*100)/100;
       var atr=calcAtraso(l,pi,p);
       var desc=(p.descuento||0);
+      var abonado=(p.abonado||0);
       var totalConAtr=Math.round(Math.max(0,p.amount+atr.monto-desc)*100)/100;
+      var restante=Math.max(0,Math.round((totalConAtr-abonado)*100)/100);
       rows.push({
         fecha:fecha,y:y,m:m,
         nombre:nombre,
@@ -2338,7 +2356,9 @@ function getResumenData(){
         interes:pay_int,
         descuento:desc,
         atraso:atr.monto,
+        abonado:abonado,
         total:totalConAtr,
+        restante:restante,
         status:pStatus,
         payNum:pi+1,
         totalPays:sched.length,
@@ -2353,15 +2373,15 @@ function getResumenData(){
 var MESES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function renderResumen(){
   var rows=getResumenData();
-  var totalCap=0,totalInt=0,totalDesc=0,totalAtr=0,totalTot=0;
-  rows.forEach(function(r){totalCap+=r.capital;totalInt+=r.interes;totalDesc+=r.descuento;totalAtr+=(r.atraso||0);totalTot+=r.total;});
+  var totalCap=0,totalInt=0,totalDesc=0,totalAtr=0,totalAbo=0,totalTot=0;
+  rows.forEach(function(r){totalCap+=r.capital;totalInt+=r.interes;totalDesc+=r.descuento;totalAtr+=(r.atraso||0);totalAbo+=(r.abonado||0);totalTot+=r.restante;});
   document.getElementById('res-subtitle').textContent=rows.length+' pago'+(rows.length!==1?'s':'');
   var html='';
   if(!rows.length){
     html='<div class="empty"><div class="empty-ico">📋</div><div>Sin pagos con estos filtros</div></div>';
   }else{
     html='<div style="overflow-x:auto;"><table class="res-table"><thead><tr>'
-      +'<th>Cliente</th><th>Concepto</th><th>Fecha pago</th><th>Capital</th><th>Interés</th><th style="color:#93C5FD;">Descuento</th><th style="color:var(--red);">Atraso</th><th>Total</th><th>Estado</th><th></th>'
+      +'<th>Cliente</th><th>Concepto</th><th>Fecha pago</th><th>Capital</th><th>Interés</th><th style="color:#93C5FD;">Descuento</th><th style="color:var(--red);">Atraso</th><th style="color:var(--purple);">Abonado</th><th>Restante</th><th>Estado</th><th></th>'
       +'</tr></thead><tbody>';
     rows.forEach(function(r){
       var fechaDisplay=r.fecha?fmtDate(r.fecha):'';
@@ -2376,7 +2396,8 @@ function renderResumen(){
         +'<td style="font-family:DM Mono,monospace;text-align:right;color:var(--green);">'+fmt(r.interes)+'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;color:var(--blue-mid);">'+(r.descuento>0?'−'+fmt(r.descuento):'—')+'</td>'
         +'<td style="font-family:DM Mono,monospace;text-align:right;color:var(--red);">'+(r.atraso>0?'+'+fmt(r.atraso):'—')+'</td>'
-        +'<td style="font-family:DM Mono,monospace;text-align:right;font-weight:700;">'+fmt(r.total)+'</td>'
+        +'<td style="font-family:DM Mono,monospace;text-align:right;color:var(--purple);">'+(r.abonado>0?'−'+fmt(r.abonado):'—')+'</td>'
+        +'<td style="font-family:DM Mono,monospace;text-align:right;font-weight:700;">'+fmt(r.restante)+'</td>'
         +'<td style="text-align:center;font-size:11px;color:'+statusColor+';">'+statusLabel+'</td>'
         +'<td style="text-align:center;"><button onclick="deleteLoanFromResumen(\''+r.loanId+'\')" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;">🗑</button></td>'
         +'</tr>';
@@ -2387,6 +2408,7 @@ function renderResumen(){
       +'<td style="text-align:right;font-family:DM Mono,monospace;color:var(--green);">'+fmt(totalInt)+'</td>'
       +'<td style="text-align:right;font-family:DM Mono,monospace;color:var(--blue-mid);">'+(totalDesc>0?'−'+fmt(totalDesc):'—')+'</td>'
       +'<td style="text-align:right;font-family:DM Mono,monospace;color:var(--red);">'+(totalAtr>0?'+'+fmt(totalAtr):'—')+'</td>'
+      +'<td style="text-align:right;font-family:DM Mono,monospace;color:var(--purple);">'+(totalAbo>0?'−'+fmt(totalAbo):'—')+'</td>'
       +'<td style="text-align:right;font-family:DM Mono,monospace;">'+fmt(totalTot)+'</td>'
       +'<td></td><td></td>'
       +'</tr>';
@@ -2420,11 +2442,11 @@ function deleteLoanFromResumen(loanId){
 function downloadResumen(){
   var rows=getResumenData();
   if(!rows.length){showNotif('Sin datos para descargar');return;}
-  var csv='Cliente,Año,Mes,Día,Capital,Interés,Descuento,Atraso,Total,Concepto\n';
+  var csv='Cliente,Año,Mes,Día,Capital,Interés,Descuento,Atraso,Abonado,Restante,Concepto\n';
   rows.forEach(function(r){
     var d=r.fecha?r.fecha.substring(8,10):'';
     var mLbl=r.m?MESES[parseInt(r.m)]||r.m:'';
-    csv+='"'+r.nombre+'","'+r.y+'","'+mLbl+'","'+d+'","'+r.capital+'","'+r.interes+'","'+r.descuento+'","'+(r.atraso||0)+'","'+r.total+'","'+r.concepto+'"\n';
+    csv+='"'+r.nombre+'","'+r.y+'","'+mLbl+'","'+d+'","'+r.capital+'","'+r.interes+'","'+r.descuento+'","'+(r.atraso||0)+'","'+(r.abonado||0)+'","'+r.restante+'","'+r.concepto+'"\n';
   });
   var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   var url=URL.createObjectURL(blob);
@@ -2450,11 +2472,11 @@ function sendResumenWA(){
     var d=r.fecha?r.fecha.substring(8,10):'';
     var mLbl=r.m?MESES[parseInt(r.m)]||r.m:'';
     msg+=r.nombre+' · '+d+'/'+mLbl+'/'+r.y+'\n'
-      +'  Capital: '+fmt(r.capital)+' · Interés: '+fmt(r.interes)+(r.descuento>0?' · Descuento: −'+fmt(r.descuento):'')+' · Total: '+fmt(r.total)+'\n';
+      +'  Capital: '+fmt(r.capital)+' · Interés: '+fmt(r.interes)+(r.descuento>0?' · Desc: −'+fmt(r.descuento):'')+(r.atraso>0?' · Atraso: +'+fmt(r.atraso):'')+(r.abonado>0?' · Abonado: −'+fmt(r.abonado):'')+' · Restante: '+fmt(r.restante)+'\n';
   });
   if(rows.length>20) msg+='...y '+(rows.length-20)+' más\n';
   msg+='─'.repeat(30)+'\n';
-  msg+='TOTALES: Capital '+fmt(totalCap)+' · Interés '+fmt(totalInt)+(totalDesc>0?' · Descuento −'+fmt(totalDesc):'')+' · Total '+fmt(totalTot);
+  msg+='TOTALES: Capital '+fmt(totalCap)+' · Interés '+fmt(totalInt)+(totalDesc>0?' · Desc −'+fmt(totalDesc):'')+(totalAtr>0?' · Atraso +'+fmt(totalAtr):'')+(totalAbo>0?' · Abonado −'+fmt(totalAbo):'')+' · Restante '+fmt(totalTot);
   window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
 }
 
