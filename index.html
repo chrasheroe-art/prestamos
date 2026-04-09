@@ -272,7 +272,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
       <button class="tab" onclick="dTab('abonos',this)">Historial</button>
     </div>
     <div id="d-pay"></div>
-    <button class="btn-p" id="d-abo-btn" style="margin-top:8px;" onclick="openAbono(null,null)">+ Registrar abono</button>
+    <button class="btn-p" id="d-abo-btn" style="margin-top:8px;display:none;" onclick="openAbono(null,null)">+ Registrar abono</button>
   </div>
   <button onclick="closeDetail()" class="fab-back">← Volver</button>
 </div>
@@ -883,7 +883,7 @@ function renderDPay(){
         var ibg=isPartial?'var(--orange-light)':u==='overdue'?'var(--red-light)':u==='warning'?'var(--orange-light)':'var(--blue-light)';
         var ico=isPartial?'½':u==='overdue'?'⚠':'📋';
         var dc='pi-date'+(u==='overdue'?' red':u==='warning'?' orange':'');
-        var pill=isPartial?'<span class="pill p-orange">🔄 Abonado '+fmt(abonado)+'</span>'
+        var pill=isPartial?'<span class="pill p-orange">🔄 '+fmt(abonado)+' abonado · resta '+fmt(restante)+'</span>'
           :u==='overdue'?'<span class="pill p-red">⚠ Vencido</span>'
           :u==='warning'?'<span class="pill p-orange">🕐 Próximo</span>'
           :'<span class="pill p-blue">Pendiente</span>';
@@ -941,11 +941,16 @@ function renderDPay(){
           +'<span style="font-size:11px;color:var(--blue-mid);">aplicado al total</span>'
           +'</div>';
 
-        // Fila de abono (siempre visible)
-        var abonoRowHtml='<div style="margin-top:6px;padding:8px 10px;background:var(--purple-light);border-radius:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-          +'<span style="font-size:11px;color:var(--purple);font-weight:700;flex:0 0 auto;">💜 Abonado:</span>'
-          +'<span style="font-size:13px;color:var(--purple);font-weight:700;font-family:DM Mono,monospace;">'+fmt(abonado)+'</span>'
-          +(abonado>0?'<span style="font-size:11px;color:var(--purple);">· Resta: '+fmt(restante)+'</span>':'<span style="font-size:11px;color:var(--purple);opacity:.6;">sin abonos</span>')
+        // Fila de abono editable inline (fecha = hoy automático)
+        var abonoRowHtml='<div style="margin-top:6px;padding:8px 10px;background:var(--purple-light);border-radius:8px;">'
+          +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">'
+          +'<span style="font-size:11px;color:var(--purple);font-weight:700;flex:0 0 auto;">💜 Abono:</span>'
+          +'<input type="number" min="0" step="1" id="ab-inline-'+loan.id+'-'+i+'" placeholder="0"'
+          +' style="flex:1;min-width:90px;padding:3px 8px;font-size:13px;border:1px solid var(--purple);border-radius:6px;font-family:DM Mono,monospace;background:#fff;color:var(--purple);font-weight:700;">'
+          +'<button onclick="saveAbonoInline(\''+loan.id+'\','+i+')"'
+          +' style="background:var(--purple);color:#fff;border:none;border-radius:6px;padding:4px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Guardar</button>'
+          +'</div>'
+          +(abonado>0?'<div style="font-size:11px;color:var(--purple);padding:0 2px;">Abonado: <strong>'+fmt(abonado)+'</strong> · Resta: <strong>'+fmt(restante)+'</strong></div>':'')
           +'</div>';
 
         html+='<div class="pi'+pc+'">'
@@ -958,7 +963,6 @@ function renderDPay(){
           +abonoRowHtml
           +'<div class="pi-actions">'
           +'<button class="pi-btn pbb" onclick="openEditPay(\''+loan.id+'\','+i+')">✏ Editar</button>'
-          +'<button class="pi-btn pbg" onclick="openAbono(\''+loan.id+'\','+i+')">+ Abono</button>'
           +'<button class="pi-btn pbw" onclick="sendWA(\''+loan.id+'\','+i+')">📱 WA</button>'
           +'<button class="pi-btn pbr" onclick="deletePay(\''+loan.id+'\','+i+')">🗑 Eliminar</button>'
           +'<button class="pi-btn pbd" onclick="openAlertModal(\''+loan.id+'\','+i+',\''+p.date+'\')">'+(hasAlert(loan.id,i)?'🔔 Alerta ✓':'🔔 Alerta')+'</button>'
@@ -1048,7 +1052,11 @@ function getSched(loan){
 }
 function getAbonado(lid,idx,payments){
   var ps=payments||DB.payments;
-  return ps.filter(function(p){return String(p.prestamo_id)===String(lid)&&parseInt(p.pago_index)===idx;}).reduce(function(s,p){return s+(p.monto||0);},0);
+  return ps.filter(function(p){
+    return String(p.prestamo_id)===String(lid)
+      &&parseInt(p.pago_index)===idx
+      &&p.estado!=='eliminado';
+  }).reduce(function(s,p){return s+(p.monto||0);},0);
 }
 function remDebt(loan){
   var sched=getSched(loan);
@@ -1255,6 +1263,61 @@ function saveLoan(){
 }
 
 // ============================================================
+// ABONO INLINE — registra directamente desde la tarjeta del pago
+// ============================================================
+function saveAbonoInline(lid,idx){
+  var amtInput=document.getElementById('ab-inline-'+lid+'-'+idx);
+  if(!amtInput){showNotif('Error al leer el formulario');return;}
+  var amt=parseFloat(amtInput.value);
+  if(!amt||amt<=0){showNotif('Ingresa un monto mayor a 0');return;}
+  var date=todayStr();
+  var loan=DB.loans.find(function(l){return String(l.id)===String(lid);});
+  if(!loan){showNotif('Préstamo no encontrado');return;}
+  var sched=getSched(loan);
+  var payments=DB.payments;
+  var remaining=amt;
+  var i=idx;
+  while(remaining>0.009&&i<sched.length){
+    var p=sched[i];
+    if(p.status==='pagado'){i++;continue;}
+    var restante=Math.max(0,p.amount-(p.abonado||0));
+    var toApply=Math.min(remaining,restante);
+    if(toApply>0.009){
+      payments.push({
+        id:'a'+Date.now()+'x'+i,
+        prestamo_id:lid,
+        cliente_id:S.client,
+        monto:Math.round(toApply*100)/100,
+        fecha:date,
+        notas:(i===idx?'Abono':'Excedente → Pago '+(i+1)),
+        estado:'abono',
+        pago_index:i
+      });
+      var newAbonado=(p.abonado||0)+toApply;
+      var newStatus=newAbonado>=p.amount-0.009?'pagado':'parcial';
+      saveOv(lid,i,{status:newStatus});
+    }
+    remaining-=toApply;
+    i++;
+  }
+  DB.payments=payments;
+  autoBackup();
+  showNotif('✓ Abono de '+fmt(amt)+' registrado');
+  // Revisar liquidación completa del cliente
+  var clientLoans=DB.loans.filter(function(l){return String(l.cliente_id)===String(S.client);});
+  var allDone=clientLoans.every(function(l){return isLiq(l);});
+  if(allDone&&clientLoans.length>0){
+    var cl=DB.clients.find(function(c){return String(c.id)===String(S.client);});
+    showNotifSuccess((cl?cl.nombre:'El cliente')+' no tiene más adeudos ✅',3000);
+    setTimeout(function(){closeDetail();renderMain();},3200);
+  }else{
+    refreshDetailHeader();
+    renderDPay();
+    renderMain();
+  }
+}
+
+// ============================================================
 // ABONO — cascade excess to next payment
 // ============================================================
 function openAbono(lid,idx){
@@ -1348,17 +1411,17 @@ function saveAbono(){
   autoBackup();
   showNotif('✓ Abono de '+fmt(amt)+' registrado');
   closeModal('m-abono');
-  // Check if all loans for client are now liquidated
   var clientLoans=DB.loans.filter(function(l){return String(l.cliente_id)===String(S.client);});
   var allDone=clientLoans.every(function(l){return isLiq(l);});
   if(allDone&&clientLoans.length>0){
     var cl=DB.clients.find(function(c){return String(c.id)===String(S.client);});
     var name=cl?cl.nombre:'El cliente';
     showNotifSuccess(name+' no tiene más adeudos ✅',3000);
-    setTimeout(function(){closeDetail();},3200);
+    setTimeout(function(){closeDetail();renderMain();},3200);
   }else{
     refreshDetailHeader();
     renderDPay();
+    renderMain();
   }
 }
 function refreshDetailHeader(){
@@ -1402,7 +1465,6 @@ function openEditPay(lid,idx){
   document.getElementById('ep-notes').value=p.notes||'';
   document.getElementById('ep-header').innerHTML='👤 <strong>'+(cl?cl.nombre:'?')+'</strong> · '+loan.concepto+'<br>Pago '+(idx+1)+'/'+sched.length+' · Vence '+fmtDate(p.date);
   updateEpTotal();
-  updateEpRemain();
   openModal('m-ep');
 }
 function updateEpTotal(){
@@ -1459,10 +1521,12 @@ function saveEditPay(){
     payments.push({id:'a'+Date.now(),prestamo_id:lid,cliente_id:S.client,monto:Math.round(diff*100)/100,fecha:date,notas:'Ajuste manual',estado:'abono',pago_index:idx});
     DB.payments=payments;
   }
+  autoBackup();
   showNotif('✓ Pago actualizado');
   closeModal('m-ep');
   refreshDetailHeader();
   renderDPay();
+  renderMain();
 }
 function saveOv(lid,idx,fields){var ov=DB.overrides;if(!ov[lid])ov[lid]={};if(!ov[lid][idx])ov[lid][idx]={};Object.assign(ov[lid][idx],fields);DB.overrides=ov;}
 
@@ -1496,15 +1560,19 @@ function calcAtraso(loan, idx, p){
 function saveAtrasoOverride(lid,idx,dias){
   if(isNaN(dias)||dias<0) return;
   saveOv(lid,idx,{atraso_dias:dias});
+  autoBackup();
   refreshDetailHeader();
   renderDPay();
+  renderMain();
 }
 function saveDescuento(lid,idx,val){
   var desc=parseFloat(val)||0;
   if(desc<0) desc=0;
   saveOv(lid,idx,{descuento:desc});
+  autoBackup();
   refreshDetailHeader();
   renderDPay();
+  renderMain();
 }
 function toggleAtrasoStop(lid,idx){
   var ov=DB.overrides[lid]||{};
@@ -1523,8 +1591,10 @@ function toggleAtrasoStop(lid,idx){
   }else{
     saveOv(lid,idx,{atraso_detenido:false,atraso_dias:undefined});
   }
+  autoBackup();
   refreshDetailHeader();
   renderDPay();
+  renderMain();
 }
 
 function deletePay(lid,idx){
@@ -1538,17 +1608,18 @@ function deletePay(lid,idx){
   var payments=DB.payments;
   payments.push({id:'a'+Date.now()+'e',prestamo_id:lid,cliente_id:S.client,monto:p.amount,fecha:todayStr(),notas:'Pago eliminado',estado:'eliminado',pago_index:idx});
   DB.payments=payments;
+  autoBackup();
   showNotif('Pago eliminado y registrado en historial');
-  // Check if now all liquidated
   var clientLoans=DB.loans.filter(function(l){return String(l.cliente_id)===String(S.client);});
   var allDone=clientLoans.every(function(l){return isLiq(l);});
   if(allDone&&clientLoans.length>0){
     var cl=DB.clients.find(function(c){return String(c.id)===String(S.client);});
     showNotifSuccess((cl?cl.nombre:'El cliente')+' no tiene mas adeudos ✅',3000);
-    setTimeout(function(){closeDetail();},3200);
+    setTimeout(function(){closeDetail();renderMain();},3200);
   }else{
     refreshDetailHeader();
     renderDPay();
+    renderMain();
   }
 }
 
