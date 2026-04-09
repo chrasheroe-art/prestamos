@@ -77,6 +77,8 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 /* FAB */
 .fab{position:fixed;bottom:72px;right:16px;z-index:200;border:none;cursor:pointer;border-radius:28px;font-family:inherit;font-weight:700;font-size:15px;padding:14px 22px;background:var(--blue);color:#fff;box-shadow:0 4px 16px rgba(30,58,95,.4);}
 .fab:active{transform:scale(.97);}
+.fab-back{position:fixed;bottom:80px;right:16px;z-index:300;border:none;cursor:pointer;border-radius:28px;font-family:inherit;font-weight:700;font-size:14px;padding:12px 20px;background:var(--blue);color:#fff;box-shadow:0 4px 16px rgba(30,58,95,.4);}
+.fab-back:active{transform:scale(.97);}
 
 /* BOTTOM NAV */
 .bnav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:100;}
@@ -256,7 +258,6 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 <!-- DETAIL -->
 <div class="dv" id="dv">
   <div class="dh">
-    <button class="dback" onclick="closeDetail()">← Volver</button>
     <div class="dname" id="d-name">—</div>
     <div class="dtotal" id="d-total">$0</div>
     <div id="d-subtitle" style="font-size:12px;color:rgba(255,255,255,.7);margin-top:3px;"></div>
@@ -273,6 +274,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <div id="d-pay"></div>
     <button class="btn-p" id="d-abo-btn" style="margin-top:8px;" onclick="openAbono(null,null)">+ Registrar abono</button>
   </div>
+  <button onclick="closeDetail()" class="fab-back">← Volver</button>
 </div>
 
 <!-- PROPUESTAS -->
@@ -281,7 +283,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <div style="font-size:22px;font-weight:700;color:#fff;">🧮 Simulador de propuesta</div>
     <div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:4px;">Calcula y envía la propuesta por WhatsApp</div>
   </div>
-  <button onclick="closeProp()" style="position:fixed;bottom:80px;left:16px;z-index:300;background:var(--blue);color:#fff;border:none;border-radius:28px;padding:12px 20px;font-size:14px;font-weight:700;font-family:inherit;box-shadow:0 4px 16px rgba(30,58,95,.4);cursor:pointer;">← Volver</button>
+  <button onclick="closeProp()" class="fab-back">← Volver</button>
   <div class="prop-body">
     <div class="fg"><label class="fl">Monto a prestar *</label><input class="fi" id="pr-amount" type="number" placeholder="0" min="0" oninput="calcProp()"></div>
     <div class="fg">
@@ -548,7 +550,6 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 <!-- RESUMEN VIEW -->
 <div class="res-view" id="res-view">
   <div class="res-h">
-    <button class="dback" onclick="closeResumen()">← Volver</button>
     <div style="font-size:22px;font-weight:700;color:#fff;">📊 Resumen de préstamos</div>
     <div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:4px;" id="res-subtitle">Todos los préstamos</div>
   </div>
@@ -582,11 +583,12 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
       </div>
     </div>
     <div id="res-table-wrap"></div>
-    <div style="display:flex;gap:8px;margin-top:14px;">
+    <div style="display:flex;gap:8px;margin-top:14px;margin-bottom:80px;">
       <button class="btn-g" style="flex:1;margin-top:0;" onclick="downloadResumen()">📥 Descargar CSV</button>
       <button class="btn-o" style="flex:1;margin-top:0;background:var(--green-light);color:var(--green);border:none;font-weight:600;" onclick="sendResumenWA()">📱 Enviar por WA</button>
     </div>
   </div>
+  <button onclick="closeResumen()" class="fab-back">← Volver</button>
 </div>
 
 <script>
