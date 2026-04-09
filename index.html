@@ -941,17 +941,27 @@ function renderDPay(){
           +'<span style="font-size:11px;color:var(--blue-mid);">aplicado al total</span>'
           +'</div>';
 
-        // Fila de abono editable inline (fecha = hoy automático)
-        var abonoRowHtml='<div style="margin-top:6px;padding:8px 10px;background:var(--purple-light);border-radius:8px;">'
-          +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">'
-          +'<span style="font-size:11px;color:var(--purple);font-weight:700;flex:0 0 auto;">💜 Abono:</span>'
-          +'<input type="number" min="0" step="1" id="ab-inline-'+loan.id+'-'+i+'" placeholder="0"'
-          +' style="flex:1;min-width:90px;padding:3px 8px;font-size:13px;border:1px solid var(--purple);border-radius:6px;font-family:DM Mono,monospace;background:#fff;color:var(--purple);font-weight:700;">'
-          +'<button onclick="saveAbonoInline(\''+loan.id+'\','+i+')"'
-          +' style="background:var(--purple);color:#fff;border:none;border-radius:6px;padding:4px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Guardar</button>'
-          +'</div>'
-          +(abonado>0?'<div style="font-size:11px;color:var(--purple);padding:0 2px;">Abonado: <strong>'+fmt(abonado)+'</strong> · Resta: <strong>'+fmt(restante)+'</strong></div>':'')
-          +'</div>';
+        // Fila de abono — en vivo como descuento, con fecha y detalle por abono
+        var abonosLista=DB.payments.filter(function(pmt){
+          return String(pmt.prestamo_id)===String(loan.id)
+            &&parseInt(pmt.pago_index)===i
+            &&pmt.estado!=='eliminado';
+        }).sort(function(a,b){return (a.fecha||'').localeCompare(b.fecha||'');});
+        var abonosDetalleHtml='';
+        if(abonosLista.length>0){
+          abonosDetalleHtml='<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;">';
+          abonosLista.forEach(function(pmt){
+            abonosDetalleHtml+='<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:2px 4px;border-radius:4px;background:rgba(124,58,237,.07);">'
+              +'<span style="color:var(--purple);">'+(pmt.notas||'Abono')+'</span>'
+              +'<span style="display:flex;align-items:center;gap:8px;">'
+              +'<span style="color:var(--muted);">'+fmtDate(pmt.fecha)+'</span>'
+              +'<span style="font-family:DM Mono,monospace;font-weight:700;color:var(--purple);">'+fmt(pmt.monto)+'</span>'
+              +'</span></div>';
+          });
+          abonosDetalleHtml+='</div>';
+        }
+        var abonoRowHtml='<div style="margin-top:6px;padding:8px 10px;background:var(--purple-light);border-radius:8px;">'          +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'          +'<span style="font-size:11px;color:var(--purple);font-weight:700;flex:0 0 auto;">💜 Abono:</span>'          +'<input type="number" min="0" step="1" placeholder="Monto" id="ab-live-amt-'+loan.id+'-'+i+'"'          +' style="width:100px;padding:3px 7px;font-size:12px;border:1px solid var(--purple);border-radius:6px;font-family:DM Mono,monospace;text-align:center;background:#fff;color:var(--purple);font-weight:700;"'          +' onchange="saveAbonoLive(\''+loan.id+'\','+i+',this)">'          +'<input type="date" id="ab-live-date-'+loan.id+'-'+i+'" value="'+todayStr()+'"'          +' style="flex:1;min-width:110px;padding:3px 7px;font-size:12px;border:1px solid var(--purple);border-radius:6px;font-family:inherit;background:#fff;color:var(--purple);">'          +(abonado>0?'<span style="font-size:11px;color:var(--purple);white-space:nowrap;">Resta: <strong>'+fmt(restante)+'</strong></span>':'')
+          +'</div>'          +abonosDetalleHtml          +'</div>';
 
         html+='<div class="pi'+pc+'">'
           +'<div class="pi-top"><div class="pi-ico" style="background:'+ibg+'">'+ico+'</div>'
@@ -1265,6 +1275,61 @@ function saveLoan(){
 // ============================================================
 // ABONO INLINE — registra directamente desde la tarjeta del pago
 // ============================================================
+// ============================================================
+// ABONO EN VIVO — sin botón, igual que saveDescuento
+// ============================================================
+function saveAbonoLive(lid,idx,inputEl){
+  var amt=parseFloat(inputEl.value);
+  if(!amt||amt<=0){inputEl.value='';return;}
+  var dateInput=document.getElementById('ab-live-date-'+lid+'-'+idx);
+  var date=dateInput?dateInput.value:todayStr();
+  if(!date) date=todayStr();
+  var loan=DB.loans.find(function(l){return String(l.id)===String(lid);});
+  if(!loan){showNotif('Préstamo no encontrado');return;}
+  var sched=getSched(loan);
+  var payments=DB.payments;
+  var remaining=amt;
+  var i=idx;
+  while(remaining>0.009&&i<sched.length){
+    var p=sched[i];
+    if(p.status==='pagado'){i++;continue;}
+    var restante=Math.max(0,p.amount-(p.abonado||0));
+    var toApply=Math.min(remaining,restante);
+    if(toApply>0.009){
+      payments.push({
+        id:'a'+Date.now()+'x'+i,
+        prestamo_id:lid,
+        cliente_id:S.client,
+        monto:Math.round(toApply*100)/100,
+        fecha:date,
+        notas:(i===idx?'Abono':'Excedente → Pago '+(i+1)),
+        estado:'abono',
+        pago_index:i
+      });
+      var newAbonado=(p.abonado||0)+toApply;
+      var newStatus=newAbonado>=p.amount-0.009?'pagado':'parcial';
+      saveOv(lid,i,{status:newStatus});
+    }
+    remaining-=toApply;
+    i++;
+  }
+  DB.payments=payments;
+  inputEl.value='';
+  autoBackup();
+  var clientLoans=DB.loans.filter(function(l){return String(l.cliente_id)===String(S.client);});
+  var allDone=clientLoans.every(function(l){return isLiq(l);});
+  if(allDone&&clientLoans.length>0){
+    var cl=DB.clients.find(function(c){return String(c.id)===String(S.client);});
+    showNotifSuccess((cl?cl.nombre:'El cliente')+' no tiene más adeudos ✅',3000);
+    setTimeout(function(){closeDetail();renderMain();},3200);
+  }else{
+    showNotif('✓ Abono registrado');
+    refreshDetailHeader();
+    renderDPay();
+    renderMain();
+  }
+}
+
 function saveAbonoInline(lid,idx){
   var amtInput=document.getElementById('ab-inline-'+lid+'-'+idx);
   if(!amtInput){showNotif('Error al leer el formulario');return;}
