@@ -377,33 +377,36 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <div class="mhandle"></div>
     <button class="xbtn" onclick="closeModal('m-ep')">✕</button>
     <div class="mtitle">✏️ Editar pago</div>
-    <div class="ep-info" id="ep-header"></div>
     <input type="hidden" id="ep-lid">
     <input type="hidden" id="ep-idx">
     <input type="hidden" id="ep-amount">
 
-    <!-- Datos del pago -->
-    <div class="fg"><label class="fl">Cliente asignado</label><select class="fi fsel" id="ep-client"></select></div>
-    <div class="fg"><label class="fl">Concepto</label><input class="fi" id="ep-concept" type="text"></div>
-    <div style="display:flex;gap:10px;">
-      <div class="fg" style="flex:1;"><label class="fl">Capital *</label><input class="fi" id="ep-capital" type="number" min="0" placeholder="0" oninput="updateEpTotal()"></div>
-      <div class="fg" style="flex:1;"><label class="fl">Interés</label><input class="fi" id="ep-interest" type="number" min="0" placeholder="0" oninput="updateEpTotal()"></div>
-    </div>
-    <div class="fg"><label class="fl">Fecha de vencimiento</label><input class="fi" id="ep-date" type="date"></div>
-    <div class="fg">
-      <label class="fl">Estado</label>
-      <select class="fi fsel" id="ep-status">
-        <option value="pendiente">⏳ Pendiente</option>
-        <option value="parcial">🔄 Parcial</option>
-        <option value="pagado">✅ Pagado</option>
-      </select>
-    </div>
-    <div class="fg"><label class="fl">Notas</label><input class="fi" id="ep-notes" type="text" placeholder="Opcional"></div>
-    <div id="ep-total-preview" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:10px 14px;margin-bottom:4px;font-size:13px;font-weight:600;display:none;"></div>
+    <!-- 1. Cliente asignado -->
+    <div class="fg"><label class="fl">1. Cliente asignado</label><select class="fi fsel" id="ep-client"></select></div>
 
-    <!-- ⏰ Atraso -->
-    <div style="background:var(--red-light);border-radius:var(--rs);padding:12px 14px;margin-bottom:10px;">
-      <div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">⏰ Penalización por atraso</div>
+    <!-- 2. Operación — desglose en tiempo real -->
+    <div id="ep-total-preview" style="background:var(--blue-pale);border:1px solid var(--blue-light);border-radius:var(--rs);padding:12px 14px;margin-bottom:13px;font-size:14px;font-weight:700;display:none;line-height:1.9;">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">2. Operación</div>
+    </div>
+
+    <!-- 3. Tipo de préstamo (solo lectura, informativo) -->
+    <div class="fg">
+      <label class="fl">3. Tipo de préstamo</label>
+      <div id="ep-tipo" class="fi" style="background:var(--bg);color:var(--muted);cursor:default;font-size:13px;padding:10px 14px;">—</div>
+    </div>
+
+    <!-- 4. Concepto -->
+    <div class="fg"><label class="fl">4. Concepto</label><input class="fi" id="ep-concept" type="text"></div>
+
+    <!-- 5. Capital -->
+    <div class="fg"><label class="fl">5. Capital</label><input class="fi" id="ep-capital" type="number" min="0" placeholder="0" oninput="updateEpTotal()"></div>
+
+    <!-- 6. Interés -->
+    <div class="fg"><label class="fl">6. Interés</label><input class="fi" id="ep-interest" type="number" min="0" placeholder="0" oninput="updateEpTotal()"></div>
+
+    <!-- 7. Penalización por atraso -->
+    <div style="background:var(--red-light);border-radius:var(--rs);padding:12px 14px;margin-bottom:13px;">
+      <div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">7. ⏰ Penalización por atraso</div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <div style="display:flex;align-items:center;gap:6px;">
           <label style="font-size:12px;color:var(--red);">Días:</label>
@@ -418,9 +421,9 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
       <input type="hidden" id="ep-atraso-detenido" value="0">
     </div>
 
-    <!-- 🏷 Descuento -->
-    <div style="background:var(--blue-light);border-radius:var(--rs);padding:12px 14px;margin-bottom:10px;">
-      <div style="font-size:11px;font-weight:700;color:var(--blue-mid);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🏷 Descuento</div>
+    <!-- 8. Descuento -->
+    <div style="background:var(--blue-light);border-radius:var(--rs);padding:12px 14px;margin-bottom:13px;">
+      <div style="font-size:11px;font-weight:700;color:var(--blue-mid);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">8. 🏷 Descuento</div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <input type="number" min="0" id="ep-descuento" placeholder="0"
           style="width:120px;padding:4px 8px;font-size:13px;border:1px solid var(--blue-mid);border-radius:6px;font-family:DM Mono,monospace;background:#fff;color:var(--blue-mid);font-weight:700;"
@@ -429,9 +432,9 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
       </div>
     </div>
 
-    <!-- 💜 Abono -->
-    <div style="background:var(--purple-light);border-radius:var(--rs);padding:12px 14px;margin-bottom:10px;">
-      <div style="font-size:11px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">💜 Registrar abono</div>
+    <!-- 9. Registrar abono -->
+    <div style="background:var(--purple-light);border-radius:var(--rs);padding:12px 14px;margin-bottom:13px;">
+      <div style="font-size:11px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">9. 💜 Registrar abono</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
         <input type="number" min="0" step="1" id="ep-abono-monto" placeholder="Monto"
           style="width:110px;padding:4px 8px;font-size:13px;border:1px solid var(--purple);border-radius:6px;font-family:DM Mono,monospace;background:#fff;color:var(--purple);font-weight:700;"
@@ -443,7 +446,24 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
       <div id="ep-abono-lista" style="display:flex;flex-direction:column;gap:3px;"></div>
     </div>
 
-    <button class="btn-p" onclick="saveEditPay()" style="margin-top:6px;">Guardar cambios</button>
+    <!-- 10. Fecha de vencimiento -->
+    <div class="fg"><label class="fl">10. Fecha de vencimiento</label><input class="fi" id="ep-date" type="date"></div>
+
+    <!-- 11. Estado -->
+    <div class="fg">
+      <label class="fl">11. Estado</label>
+      <select class="fi fsel" id="ep-status">
+        <option value="pendiente">⏳ Pendiente</option>
+        <option value="parcial">🔄 Parcial</option>
+        <option value="pagado">✅ Pagado</option>
+      </select>
+    </div>
+
+    <!-- 12. Notas -->
+    <div class="fg"><label class="fl">12. Notas</label><input class="fi" id="ep-notes" type="text" placeholder="Opcional"></div>
+
+    <!-- 13. Guardar / Cerrar -->
+    <button class="btn-p" onclick="saveEditPay()" style="margin-top:6px;">💾 Guardar cambios</button>
     <button class="btn-o" onclick="closeModal('m-ep')" style="margin-top:8px;">Cerrar</button>
   </div>
 </div>
@@ -564,12 +584,9 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <div class="mtitle">🗑 Borrar registro</div>
     <div class="ep-info" id="dh-info"></div>
     <input type="hidden" id="dh-pid">
-    <div style="font-size:14px;color:var(--text);margin-bottom:16px;">¿Qué deseas hacer con este registro?</div>
-    <!-- Botón solo para registros tipo 'eliminado' -->
-    <button id="dh-btn-restore" class="btn-p" style="background:var(--orange);" onclick="restoreHistEntry()">↩ Restaurar — regresar a pendiente</button>
-    <!-- Botón solo para abonos normales -->
-    <button id="dh-btn-delete-abono" class="btn-p" style="background:var(--blue-mid);" onclick="deleteAbono()">↩ Eliminar abono — regresar al adeudo</button>
-    <button id="dh-btn-perm" class="btn-d" onclick="permanentDeleteHist()">🗑 Eliminar permanentemente del historial</button>
+    <div style="font-size:14px;color:var(--text);margin-bottom:20px;">¿Qué deseas hacer con este registro?</div>
+    <button class="btn-p" style="background:var(--orange);" onclick="restoreHistEntry()">↩ Restaurar — regresar a pendiente</button>
+    <button class="btn-d" onclick="permanentDeleteHist()">🗑 Eliminar permanentemente</button>
     <button class="btn-o" onclick="closeModal('m-del-hist')">Cancelar</button>
   </div>
 </div>
@@ -936,16 +953,15 @@ function renderDPay(){
           +'<span style="color:var(--muted);font-size:10px;">=</span>'
           +'<span style="color:var(--text);font-weight:700;">'+fmt(restante)+'</span>'
           +'</div>';
-        html+='<div class="pi'+pc+'">'
+        html+='<div class="pi'+pc+'" onclick="openEditPay(\''+loan.id+'\','+i+')" style="cursor:pointer;">'
           +'<div class="pi-top"><div class="pi-ico" style="background:'+ibg+'">'+ico+'</div>'
           +'<div class="pi-info"><div class="pi-name">'+(p.concept||loan.concepto)+' · Pago '+(i+1)+'/'+sched.length+'</div>'
           +'<div class="'+dc+'">'+fmtDate(p.date)+'</div>'+pill+'</div>'+amtHtml+'</div>'
           +breakdownHtml
           +'<div class="pi-actions">'
-          +'<button class="pi-btn pbb" onclick="openEditPay(\''+loan.id+'\','+i+')">✏ Editar</button>'
-          +'<button class="pi-btn pbw" onclick="sendWA(\''+loan.id+'\','+i+')">📱 WA</button>'
-          +'<button class="pi-btn pbr" onclick="deletePay(\''+loan.id+'\','+i+')">🗑 Eliminar</button>'
-          +'<button class="pi-btn pbd" onclick="openAlertModal(\''+loan.id+'\','+i+',\''+p.date+'\')">'+(hasAlert(loan.id,i)?'🔔 Alerta ✓':'🔔 Alerta')+'</button>'
+          +'<button class="pi-btn pbw" onclick="event.stopPropagation();sendWA(\''+loan.id+'\','+i+')">📱 WA</button>'
+          +'<button class="pi-btn pbr" onclick="event.stopPropagation();deletePay(\''+loan.id+'\','+i+')">🗑 Eliminar</button>'
+          +'<button class="pi-btn pbd" onclick="event.stopPropagation();openAlertModal(\''+loan.id+'\','+i+',\''+p.date+'\')">'+(hasAlert(loan.id,i)?'🔔 Alerta ✓':'🔔 Alerta')+'</button>'
           +'</div></div>';
       });
     }
@@ -1283,7 +1299,9 @@ function openEditPay(lid,idx){
   document.getElementById('ep-date').value=p.date;
   document.getElementById('ep-status').value=p.status;
   document.getElementById('ep-notes').value=p.notes||'';
-  document.getElementById('ep-header').innerHTML='👤 <strong>'+(cl?cl.nombre:'?')+'</strong> · '+loan.concepto+'<br>Pago '+(idx+1)+'/'+sched.length+' · Vence '+fmtDate(p.date);
+  var freqLabels={biweekly:'Quincenal',weekly:'Semanal',monthly:'Mensual',daily_fixed:'Fijo (pago único)',daily_meter:'Por día corriente'};
+  var tipoLabel=(freqLabels[loan.frecuencia]||loan.frecuencia||'—')+' · Pago '+(idx+1)+'/'+sched.length;
+  document.getElementById('ep-tipo').textContent=tipoLabel;
   // Atraso
   var atrCalc=calcAtraso(loan,idx,p);
   document.getElementById('ep-atraso-dias').value=atrCalc.dias||0;
@@ -1321,17 +1339,26 @@ function updateEpTotal(){
     var atrMonto=atrDias*50;
     var paid=getAbonado(lid,idx);
     var total=Math.max(0,Math.round((baseTotal+atrMonto-desc-paid)*100)/100);
-    prev.innerHTML='<span style="color:var(--muted);">'+fmt(cap)+'</span>'
-      +' <span style="color:var(--muted);font-size:11px;">+</span>'
-      +' <span style="color:var(--green);">'+fmt(inter)+'</span>'
-      +' <span style="color:var(--muted);font-size:11px;">+</span>'
-      +' <span style="color:var(--red);">'+fmt(atrMonto)+'</span>'
-      +' <span style="color:var(--muted);font-size:11px;">−</span>'
-      +' <span style="color:var(--blue-mid);">'+fmt(desc)+'</span>'
-      +' <span style="color:var(--muted);font-size:11px;">−</span>'
-      +' <span style="color:var(--purple);">'+fmt(paid)+'</span>'
-      +' <span style="color:var(--muted);font-size:11px;">=</span>'
-      +' <strong style="color:var(--text);">'+fmt(total)+'</strong>';
+    // Format: $250 + $25 + $450 − $0 − $200 = $525
+    prev.innerHTML='<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">2. Operación</div>'
+      +'<span style="color:var(--blue);font-size:15px;">'+fmt(cap)+'</span>'
+      +' <span style="color:var(--muted);font-size:13px;font-weight:400;">+</span> '
+      +'<span style="color:var(--green);font-size:15px;">'+fmt(inter)+'</span>'
+      +' <span style="color:var(--muted);font-size:13px;font-weight:400;">+</span> '
+      +'<span style="color:var(--red);font-size:15px;">'+fmt(atrMonto)+'</span>'
+      +' <span style="color:var(--muted);font-size:13px;font-weight:400;">−</span> '
+      +'<span style="color:var(--blue-mid);font-size:15px;">'+fmt(desc)+'</span>'
+      +' <span style="color:var(--muted);font-size:13px;font-weight:400;">−</span> '
+      +'<span style="color:var(--purple);font-size:15px;">'+fmt(paid)+'</span>'
+      +' <span style="color:var(--muted);font-size:13px;font-weight:400;">=</span> '
+      +'<strong style="color:var(--text);font-size:18px;">'+fmt(total)+'</strong>'
+      +'<div style="font-size:10px;color:var(--muted);margin-top:4px;font-weight:400;">'
+      +'<span style="color:var(--blue);">■</span> Capital '
+      +'<span style="color:var(--green);">■</span> Interés '
+      +'<span style="color:var(--red);">■</span> Atraso '
+      +'<span style="color:var(--blue-mid);">■</span> Descuento '
+      +'<span style="color:var(--purple);">■</span> Abonado'
+      +'</div>';
   }else{prev.style.display='none';}
 }
 
@@ -2276,23 +2303,7 @@ function openDelHist(pid, estado){
   var pay=payments.find(function(p){return String(p.id)===String(pid);});
   if(!pay){showNotif('Registro no encontrado');return;}
   var loan=DB.loans.find(function(l){return String(l.id)===String(pay.prestamo_id);});
-  var isElim=pay.estado==='eliminado';
   document.getElementById('dh-info').innerHTML='Registro: '+(pay.notas||'Abono')+(loan?' · '+loan.concepto:'')+'<br>Fecha: '+fmtDate(pay.fecha)+' · Monto: '+fmt(pay.monto);
-  // Show/hide buttons depending on record type
-  var btnRestore=document.getElementById('dh-btn-restore');
-  var btnDeleteAbono=document.getElementById('dh-btn-delete-abono');
-  var btnPerm=document.getElementById('dh-btn-perm');
-  if(isElim){
-    // It's an 'eliminado' record — offer restore or permanent delete
-    btnRestore.style.display='';
-    btnDeleteAbono.style.display='none';
-    btnPerm.style.display='';
-  }else{
-    // It's a regular abono — offer to cancel (return to debt) or permanent delete
-    btnRestore.style.display='none';
-    btnDeleteAbono.style.display='';
-    btnPerm.style.display='';
-  }
   openModal('m-del-hist');
 }
 
@@ -2320,41 +2331,6 @@ function restoreHistEntry(){
   }
   autoBackup();
   showNotif('↩ Pago restaurado a '+newStatus);
-  closeModal('m-del-hist');
-  refreshDetailHeader();
-  renderDPay();
-  renderMain();
-}
-
-function deleteAbono(){
-  var pid=document.getElementById('dh-pid').value;
-  var payments=DB.payments;
-  var pay=payments.find(function(p){return String(p.id)===String(pid);});
-  if(!pay){showNotif('No encontrado');return;}
-  var lid=pay.prestamo_id;
-  var idx=parseInt(pay.pago_index);
-  var monto=pay.monto||0;
-  // Remove this specific payment record
-  DB.payments=payments.filter(function(p){return String(p.id)!==String(pid);});
-  // Recalculate remaining balance and update status
-  var remaining=getAbonado(lid,idx);
-  var loan=DB.loans.find(function(l){return String(l.id)===String(lid);});
-  var sched=getSched(loan);
-  var p=sched[idx];
-  var baseAmt=p?p.amount:0;
-  var newStatus=remaining>=baseAmt-0.009&&baseAmt>0?'pagado':remaining>0?'parcial':'pendiente';
-  // Update override status so it reflects the new reality
-  saveOv(lid,idx,{status:newStatus});
-  // If status went back to pendiente and override had 'pagado', clear it so cascade works
-  if(newStatus==='pendiente'){
-    var ov=DB.overrides;
-    if(ov[lid]&&ov[lid][idx]){
-      delete ov[lid][idx].status;
-      DB.overrides=ov;
-    }
-  }
-  autoBackup();
-  showNotif('↩ Abono de '+fmt(monto)+' eliminado — saldo regresado al adeudo');
   closeModal('m-del-hist');
   refreshDetailHeader();
   renderDPay();
