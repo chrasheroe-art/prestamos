@@ -669,6 +669,25 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
   </div>
 </div>
 
+<!-- COBRAR HOY -->
+<div class="cobrar-view-panel" id="cobrar-view">
+  <div class="res-h">
+    <button class="dback" onclick="closeCobrarHoy()">← Volver</button>
+    <div style="font-size:22px;font-weight:700;color:#fff;">🔔 Cobranza del día</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:4px;" id="cobrar-subtitle"></div>
+  </div>
+  <div class="res-body">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+      <select id="cobrar-filtro" onchange="renderCobrarHoy()" style="flex:1;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:inherit;background:var(--surface);outline:none;">
+        <option value="hoy">Solo vencen hoy</option>
+        <option value="vencidos">Todos los vencidos</option>
+        <option value="proximos" selected>Vencidos + próximos (alertdays días)</option>
+      </select>
+    </div>
+    <div id="cobrar-list"></div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // STATE & DB
@@ -2894,27 +2913,8 @@ function sendResumenWA(){
   window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
 }
 
-init();
+document.addEventListener('DOMContentLoaded', function(){ init(); });
 </script>
-
-<!-- COBRAR HOY -->
-<div class="cobrar-view-panel" id="cobrar-view">
-  <div class="res-h">
-    <button class="dback" onclick="closeCobrarHoy()">← Volver</button>
-    <div style="font-size:22px;font-weight:700;color:#fff;">🔔 Cobranza del día</div>
-    <div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:4px;" id="cobrar-subtitle"></div>
-  </div>
-  <div class="res-body">
-    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
-      <select id="cobrar-filtro" onchange="renderCobrarHoy()" style="flex:1;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:inherit;background:var(--surface);outline:none;">
-        <option value="hoy">Solo vencen hoy</option>
-        <option value="vencidos">Todos los vencidos</option>
-        <option value="proximos" selected>Vencidos + próximos (alertdays días)</option>
-      </select>
-    </div>
-    <div id="cobrar-list"></div>
-  </div>
-</div>
 
 </body>
 </html>
