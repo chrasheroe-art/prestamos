@@ -2617,9 +2617,18 @@ function checkScheduledNotifs(){
       var cl=loan?DB.clients.find(function(c){return String(c.id)===String(loan.cliente_id);}):null;
       var title='PrestApp 🔔';
       var body=(cl?cl.nombre:'Cliente')+' — Pago '+(n.idx+1)+' vence el '+fmtDate(n.dateStr)+(p?' ('+fmt(p.amount)+')':'');
-      // Show browser notification
+      // Show browser notification (try/catch: Chrome Android requires ServiceWorker)
       if(Notification.permission==='granted'){
-        new Notification(title,{body:body,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💼</text></svg>'});
+        try{
+          new Notification(title,{body:body,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💼</text></svg>'});
+        }catch(e){
+          // Chrome Android: use ServiceWorker if available
+          if(navigator.serviceWorker&&navigator.serviceWorker.ready){
+            navigator.serviceWorker.ready.then(function(sw){
+              sw.showNotification(title,{body:body});
+            }).catch(function(){});
+          }
+        }
       }
       // Also show in-app notif
       showNotif('🔔 '+body,6000);
