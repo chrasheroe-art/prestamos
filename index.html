@@ -688,6 +688,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
   </div>
 </div>
 
+
 <script>
 // ============================================================
 // STATE & DB
@@ -844,37 +845,31 @@ function checkPin(){
   }
 }
 
+
 // ============================================================
 // FAB BACK — botón flotante de volver
 // ============================================================
 function updateFabBack(){
   var btn=document.getElementById('fab-back');
   if(!btn) return;
-  // Visible si alguna vista de pantalla completa está abierta
-  var views=['dv','prop-view','res-view','cobrar-view'];
-  var anyOpen=views.some(function(id){
-    var el=document.getElementById(id);
-    return el&&el.classList.contains('open');
+  var open=['dv','prop-view','res-view','cobrar-view'].some(function(id){
+    var el=document.getElementById(id);return el&&el.classList.contains('open');
   });
-  if(anyOpen) btn.classList.add('visible');
-  else btn.classList.remove('visible');
+  btn.classList.toggle('visible',open);
 }
 function fabBackAction(){
-  // Cerrar la vista que esté abierta
   if(document.getElementById('dv').classList.contains('open')){closeDetail();return;}
   if(document.getElementById('prop-view').classList.contains('open')){closeProp();return;}
   if(document.getElementById('res-view').classList.contains('open')){closeResumen();return;}
   if(document.getElementById('cobrar-view').classList.contains('open')){closeCobrarHoy();return;}
 }
-
 function init(){
   loadAlerts();
   checkScheduledNotifs();
-  loadProfilePhoto();
   var pin=localStorage.getItem('pa_pin')||'';
   if(pin&&S.owner){
-    // Hay PIN configurado y ya hizo setup — mostrar pantalla de PIN
     document.getElementById('pin-screen').classList.add('open');
+    loadProfilePhoto();
     setTimeout(function(){document.getElementById('pin-input').focus();},300);
     return;
   }
@@ -883,11 +878,10 @@ function init(){
 function startApp(){
   if(!S.owner){document.getElementById('setup-screen').classList.add('open');return;}
   document.getElementById('hdr-sub').textContent=S.owner;
+  loadProfilePhoto();
   S.driveClientId=localStorage.getItem('pa_drive_cid')||'';
   if(S.driveClientId){initGoogleDrive();}
-  // Usar requestAnimationFrame para garantizar que el DOM esté
-  // completamente listo antes de renderizar las tarjetas
-  requestAnimationFrame(function(){ renderMain(); });
+  renderMain();
 }
 function finishSetup(){
   var name=document.getElementById('setup-name').value.trim();
@@ -993,8 +987,7 @@ function switchTab(tab,el){S.tab=tab;document.querySelectorAll('.tabs .tab').for
 // ============================================================
 function openCobrarHoy(){
   renderCobrarHoy();
-  document.getElementById('cobrar-view').classList.add('open');
-  updateFabBack();
+  document.getElementById('cobrar-view').classList.add('open');updateFabBack();
 }
 
 function sendWACobrar(lid,idx,nombreEnc,phone){
@@ -1145,8 +1138,7 @@ function openDetail(cid){
     }
   }
   renderDPay();
-  document.getElementById('dv').classList.add('open');
-  updateFabBack();
+  document.getElementById('dv').classList.add('open');updateFabBack();
 }
 function closeDetail(){document.getElementById('dv').classList.remove('open');updateFabBack();renderMain();}
 function filterHist(q){
@@ -2026,8 +2018,7 @@ function openProp(){
   document.getElementById('pr-pct-wrap').style.display='';
   document.getElementById('pr-firstdate').value=suggestFirstDate('biweekly');
   document.getElementById('pr-result').style.display='none';
-  document.getElementById('prop-view').classList.add('open');
-  updateFabBack();
+  document.getElementById('prop-view').classList.add('open');updateFabBack();
 }
 function closeProp(){document.getElementById('prop-view').classList.remove('open');updateFabBack();document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('active');});document.getElementById('nav-deudas').classList.add('active');}
 function propFreqChange(){
@@ -2735,8 +2726,7 @@ function openResumen(){
   clients.forEach(function(c){cSel.innerHTML+='<option value="'+c.id+'">'+c.nombre+'</option>';});
   if(curC) cSel.value=curC;
   renderResumen();
-  document.getElementById('res-view').classList.add('open');
-  updateFabBack();
+  document.getElementById('res-view').classList.add('open');updateFabBack();
 }
 function closeResumen(){
   document.getElementById('res-view').classList.remove('open');updateFabBack();
@@ -2913,8 +2903,9 @@ function sendResumenWA(){
   window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
 }
 
-document.addEventListener('DOMContentLoaded', function(){ init(); });
+document.addEventListener('DOMContentLoaded',function(){init();});
 </script>
+
 
 </body>
 </html>
