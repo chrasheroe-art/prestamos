@@ -77,6 +77,9 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 /* FAB */
 .fab{position:fixed;bottom:72px;right:16px;z-index:200;border:none;cursor:pointer;border-radius:28px;font-family:inherit;font-weight:700;font-size:15px;padding:14px 22px;background:var(--blue);color:#fff;box-shadow:0 4px 16px rgba(30,58,95,.4);}
 .fab:active{transform:scale(.97);}
+.fab-back{position:fixed;bottom:24px;right:16px;z-index:400;border:none;cursor:pointer;border-radius:28px;font-family:inherit;font-weight:700;font-size:15px;padding:13px 20px;background:var(--blue);color:#fff;box-shadow:0 4px 20px rgba(30,58,95,.45);display:none;align-items:center;gap:7px;}
+.fab-back.visible{display:flex;}
+.fab-back:active{transform:scale(.97);}
 .fab-back{position:fixed;bottom:80px;right:16px;z-index:300;border:none;cursor:pointer;border-radius:28px;font-family:inherit;font-weight:700;font-size:14px;padding:12px 20px;background:var(--blue);color:#fff;box-shadow:0 4px 16px rgba(30,58,95,.4);}
 .fab-back:active{transform:scale(.97);}
 
@@ -214,6 +217,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 @media(min-width:480px){
   body{max-width:480px;margin:0 auto;}
   .dv,.mbg,.bnav,.setup-screen,.prop-view,.res-view,.cobrar-view-panel{max-width:480px;left:50%;transform:translateX(-50%);right:auto;width:480px;}
+  .fab-back{right:calc(50% - 220px);}
   .fab{right:calc(50% - 220px);}
 }
 </style>
@@ -267,6 +271,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 </div>
 <div id="mc"></div>
 <button class="fab" onclick="openNewLoan()">+ Nuevo préstamo</button>
+<button class="fab-back" id="fab-back" onclick="fabBackAction()">← Volver</button>
 <div class="bnav">
   <button class="ni active" id="nav-deudas" onclick="navTo('deudas',this)"><span class="ni-ico">💳</span>Deudas</button>
   <button class="ni" id="nav-clientes" onclick="navTo('clientes',this)"><span class="ni-ico">👥</span>Clientes</button>
@@ -820,6 +825,29 @@ function checkPin(){
   }
 }
 
+// ============================================================
+// FAB BACK — botón flotante de volver
+// ============================================================
+function updateFabBack(){
+  var btn=document.getElementById('fab-back');
+  if(!btn) return;
+  // Visible si alguna vista de pantalla completa está abierta
+  var views=['dv','prop-view','res-view','cobrar-view'];
+  var anyOpen=views.some(function(id){
+    var el=document.getElementById(id);
+    return el&&el.classList.contains('open');
+  });
+  if(anyOpen) btn.classList.add('visible');
+  else btn.classList.remove('visible');
+}
+function fabBackAction(){
+  // Cerrar la vista que esté abierta
+  if(document.getElementById('dv').classList.contains('open')){closeDetail();return;}
+  if(document.getElementById('prop-view').classList.contains('open')){closeProp();return;}
+  if(document.getElementById('res-view').classList.contains('open')){closeResumen();return;}
+  if(document.getElementById('cobrar-view').classList.contains('open')){closeCobrarHoy();return;}
+}
+
 function init(){
   loadAlerts();
   checkScheduledNotifs();
@@ -838,7 +866,9 @@ function startApp(){
   document.getElementById('hdr-sub').textContent=S.owner;
   S.driveClientId=localStorage.getItem('pa_drive_cid')||'';
   if(S.driveClientId){initGoogleDrive();}
-  renderMain();
+  // Usar requestAnimationFrame para garantizar que el DOM esté
+  // completamente listo antes de renderizar las tarjetas
+  requestAnimationFrame(function(){ renderMain(); });
 }
 function finishSetup(){
   var name=document.getElementById('setup-name').value.trim();
@@ -945,6 +975,7 @@ function switchTab(tab,el){S.tab=tab;document.querySelectorAll('.tabs .tab').for
 function openCobrarHoy(){
   renderCobrarHoy();
   document.getElementById('cobrar-view').classList.add('open');
+  updateFabBack();
 }
 
 function sendWACobrar(lid,idx,nombreEnc,phone){
@@ -994,7 +1025,7 @@ function sendWAComprobante(lid,idx,nombreEnc,phone){
 }
 
 function closeCobrarHoy(){
-  document.getElementById('cobrar-view').classList.remove('open');
+  document.getElementById('cobrar-view').classList.remove('open');updateFabBack();
   document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('active');});
   document.getElementById('nav-deudas').classList.add('active');
 }
@@ -1096,8 +1127,9 @@ function openDetail(cid){
   }
   renderDPay();
   document.getElementById('dv').classList.add('open');
+  updateFabBack();
 }
-function closeDetail(){document.getElementById('dv').classList.remove('open');renderMain();}
+function closeDetail(){document.getElementById('dv').classList.remove('open');updateFabBack();renderMain();}
 function filterHist(q){
   var q2=(q||'').toLowerCase().trim();
   document.querySelectorAll('#d-pay .pi').forEach(function(el){
@@ -1976,8 +2008,9 @@ function openProp(){
   document.getElementById('pr-firstdate').value=suggestFirstDate('biweekly');
   document.getElementById('pr-result').style.display='none';
   document.getElementById('prop-view').classList.add('open');
+  updateFabBack();
 }
-function closeProp(){document.getElementById('prop-view').classList.remove('open');document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('active');});document.getElementById('nav-deudas').classList.add('active');}
+function closeProp(){document.getElementById('prop-view').classList.remove('open');updateFabBack();document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('active');});document.getElementById('nav-deudas').classList.add('active');}
 function propFreqChange(){
   var freq=document.getElementById('pr-freq').value;
   var isMeter=(freq==='daily_meter');
@@ -2684,9 +2717,10 @@ function openResumen(){
   if(curC) cSel.value=curC;
   renderResumen();
   document.getElementById('res-view').classList.add('open');
+  updateFabBack();
 }
 function closeResumen(){
-  document.getElementById('res-view').classList.remove('open');
+  document.getElementById('res-view').classList.remove('open');updateFabBack();
   document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('active');});
   document.getElementById('nav-deudas').classList.add('active');
 }
