@@ -2903,7 +2903,16 @@ function sendResumenWA(){
   window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
 }
 
-document.addEventListener('DOMContentLoaded',function(){ init(); });
+// Auto-init — script es inline en body, todo el DOM ya está parseado
+try {
+  init();
+} catch(e) {
+  // Si hay error en init, mostrar en pantalla para diagnóstico
+  var errDiv = document.createElement('div');
+  errDiv.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#fff;padding:20px;font-family:monospace;font-size:13px;color:red;white-space:pre-wrap;overflow:auto;';
+  errDiv.textContent = 'ERROR EN INIT:\n' + e.message + '\n\n' + e.stack;
+  document.body.appendChild(errDiv);
+}
 </script>
 
 </body>
