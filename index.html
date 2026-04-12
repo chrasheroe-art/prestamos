@@ -57,7 +57,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 .srch{padding:0 14px 10px;}
 .srch input{width:100%;padding:11px 15px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;font-family:inherit;background:var(--surface);outline:none;}
 .srch input:focus{border-color:var(--accent);}
-.list{padding:0 14px;display:flex;flex-direction:column;gap:9px;padding-bottom:130px;}
+.list{padding:0 14px;display:flex;flex-direction:column;gap:9px;padding-bottom:150px;}
 .card{background:var(--surface);border-radius:var(--r);border:1px solid var(--border);padding:15px;cursor:pointer;display:flex;align-items:center;gap:13px;}
 .card.c-red{border-left:4px solid var(--red);}
 .card.c-orange{border-left:4px solid var(--orange);}
@@ -198,6 +198,8 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 /* RESUMEN */
 .res-view{display:none;position:fixed;inset:0;background:var(--bg);z-index:250;overflow-y:auto;flex-direction:column;}
 .res-view.open{display:flex;}
+.cobrar-view-panel{display:none;position:fixed;inset:0;background:var(--bg);z-index:250;overflow-y:auto;flex-direction:column;}
+.cobrar-view-panel.open{display:flex;}
 .res-h{background:linear-gradient(135deg,var(--blue),var(--blue-mid));padding:14px 18px 22px;flex-shrink:0;}
 .res-body{padding:14px;flex:1;}
 .res-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;}
@@ -211,7 +213,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 .res-filter select,.res-filter input{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:inherit;background:var(--surface);outline:none;}
 @media(min-width:480px){
   body{max-width:480px;margin:0 auto;}
-  .dv,.mbg,.bnav,.setup-screen,.prop-view,.res-view{max-width:480px;left:50%;transform:translateX(-50%);right:auto;width:480px;}
+  .dv,.mbg,.bnav,.setup-screen,.prop-view,.res-view,.cobrar-view-panel{max-width:480px;left:50%;transform:translateX(-50%);right:auto;width:480px;}
   .fab{right:calc(50% - 220px);}
 }
 </style>
@@ -268,10 +270,9 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 <div class="bnav">
   <button class="ni active" id="nav-deudas" onclick="navTo('deudas',this)"><span class="ni-ico">💳</span>Deudas</button>
   <button class="ni" id="nav-clientes" onclick="navTo('clientes',this)"><span class="ni-ico">👥</span>Clientes</button>
+  <button class="ni" id="nav-cobrar" onclick="navTo('cobrar-hoy',this)"><span class="ni-ico">🔔</span>Cobrar</button>
   <button class="ni" id="nav-propuestas" onclick="navTo('propuestas',this)"><span class="ni-ico">🧮</span>Propuestas</button>
   <button class="ni" id="nav-resumen" onclick="navTo('resumen',this)"><span class="ni-ico">📊</span>Resumen</button>
-  <button class="ni" id="nav-cobrar" onclick="navTo('cobrar-hoy',this)"><span class="ni-ico">🔔</span>Cobrar</button>
-  <button class="ni" onclick="openSettings()"><span class="ni-ico">⚙️</span>Config</button>
 </div>
 
 <!-- DETAIL -->
@@ -2861,7 +2862,7 @@ init();
 </script>
 
 <!-- COBRAR HOY -->
-<div class="res-view" id="cobrar-view">
+<div class="cobrar-view-panel" id="cobrar-view">
   <div class="res-h">
     <button class="dback" onclick="closeCobrarHoy()">← Volver</button>
     <div style="font-size:22px;font-weight:700;color:#fff;">🔔 Cobranza del día</div>
