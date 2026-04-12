@@ -77,7 +77,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 /* FAB */
 .fab{position:fixed;bottom:72px;right:16px;z-index:200;border:none;cursor:pointer;border-radius:28px;font-family:inherit;font-weight:700;font-size:15px;padding:14px 22px;background:var(--blue);color:#fff;box-shadow:0 4px 16px rgba(30,58,95,.4);}
 .fab:active{transform:scale(.97);}
-.fab-back{position:fixed;bottom:24px;right:16px;z-index:400;border:none;cursor:pointer;border-radius:28px;font-family:inherit;font-weight:700;font-size:15px;padding:13px 20px;background:var(--blue);color:#fff;box-shadow:0 4px 20px rgba(30,58,95,.45);display:none;align-items:center;gap:7px;}
+.fab-back{position:fixed;bottom:24px;right:16px;z-index:400;border:none;cursor:pointer;border-radius:28px;font-family:inherit;font-weight:700;font-size:15px;padding:13px 20px;background:rgba(15,23,42,.82);backdrop-filter:blur(6px);color:#fff;box-shadow:0 4px 20px rgba(0,0,0,.35);display:none;align-items:center;gap:6px;}
 .fab-back.visible{display:flex;}
 .fab-back:active{transform:scale(.97);}
 .fab-back{position:fixed;bottom:80px;right:16px;z-index:300;border:none;cursor:pointer;border-radius:28px;font-family:inherit;font-weight:700;font-size:14px;padding:12px 20px;background:var(--blue);color:#fff;box-shadow:0 4px 16px rgba(30,58,95,.4);}
@@ -845,13 +845,12 @@ function checkPin(){
   }
 }
 
-
 // ============================================================
-// FAB BACK — botón flotante de volver
+// FAB BACK
 // ============================================================
 function updateFabBack(){
   var btn=document.getElementById('fab-back');
-  if(!btn) return;
+  if(!btn)return;
   var open=['dv','prop-view','res-view','cobrar-view'].some(function(id){
     var el=document.getElementById(id);return el&&el.classList.contains('open');
   });
@@ -863,6 +862,7 @@ function fabBackAction(){
   if(document.getElementById('res-view').classList.contains('open')){closeResumen();return;}
   if(document.getElementById('cobrar-view').classList.contains('open')){closeCobrarHoy();return;}
 }
+
 function init(){
   loadAlerts();
   checkScheduledNotifs();
@@ -2903,9 +2903,8 @@ function sendResumenWA(){
   window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
 }
 
-document.addEventListener('DOMContentLoaded',function(){init();});
+document.addEventListener('DOMContentLoaded',function(){ init(); });
 </script>
-
 
 </body>
 </html>
