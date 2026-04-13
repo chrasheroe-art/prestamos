@@ -207,6 +207,20 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 .res-body{padding:14px;flex:1;}
 .res-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;}
 .res-table th{background:var(--blue);color:#fff;padding:8px 10px;text-align:left;font-weight:600;font-size:12px;}
+.chart-wrap{background:var(--surface);border-radius:var(--r);border:1px solid var(--border);padding:16px;margin-bottom:14px;}
+.chart-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;}
+.chart-bars{display:flex;gap:6px;align-items:flex-end;height:160px;overflow-x:auto;padding-bottom:4px;}
+.chart-col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:44px;}
+.chart-bar-wrap{display:flex;flex-direction:column;justify-content:flex-end;height:140px;width:100%;}
+.chart-bar{width:100%;border-radius:4px 4px 0 0;min-height:2px;transition:height .3s ease;}
+.chart-lbl{font-size:9px;color:var(--muted);font-weight:600;text-align:center;white-space:nowrap;}
+.chart-val{font-size:9px;font-family:DM Mono,monospace;color:var(--text);font-weight:700;text-align:center;white-space:nowrap;}
+.chart-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.chart-legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);}
+.chart-legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.res-tabs{display:flex;background:var(--bg);border-radius:var(--rs);padding:3px;margin-bottom:14px;gap:3px;}
+.res-tab-btn{flex:1;padding:7px 4px;font-size:12px;font-weight:600;border:none;border-radius:7px;cursor:pointer;font-family:inherit;color:var(--muted);background:none;transition:all .2s;}
+.res-tab-btn.active{background:var(--surface);color:var(--blue);box-shadow:0 1px 4px rgba(0,0,0,.1);}
 .res-table th.sortable{cursor:pointer;user-select:none;white-space:nowrap;}
 .res-table th.sortable:hover{background:var(--blue-mid);}
 .res-table th .sort-arrow{font-size:9px;margin-left:3px;opacity:.6;}
@@ -705,6 +719,14 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
         </div>
       </div>
     </div>
+    <!-- Tabs: Gráfica / Tabla -->
+    <div class="res-tabs">
+      <button class="res-tab-btn active" id="res-tab-grafica" onclick="switchResTab('grafica')">📊 Gráfica</button>
+      <button class="res-tab-btn" id="res-tab-tabla" onclick="switchResTab('tabla')">📋 Tabla</button>
+    </div>
+    <!-- Gráfica -->
+    <div id="res-chart-wrap"></div>
+    <!-- Tabla -->
     <div id="res-table-wrap"></div>
     <div style="display:flex;gap:8px;margin-top:14px;margin-bottom:80px;">
       <button class="btn-g" style="flex:1;margin-top:0;" onclick="downloadResumen()">📥 Descargar CSV</button>
@@ -3012,6 +3034,128 @@ function closeResumen(){
   document.getElementById('nav-deudas').classList.add('active');
 }
 
+
+// ============================================================
+// RESUMEN — Tabs y gráfica
+// ============================================================
+var RES_TAB='grafica';
+
+function switchResTab(tab){
+  RES_TAB=tab;
+  document.getElementById('res-tab-grafica').classList.toggle('active',tab==='grafica');
+  document.getElementById('res-tab-tabla').classList.toggle('active',tab==='tabla');
+  document.getElementById('res-chart-wrap').style.display=tab==='grafica'?'':'none';
+  document.getElementById('res-table-wrap').style.display=tab==='tabla'?'':'none';
+  if(tab==='grafica') renderResumenChart();
+}
+
+function renderResumenChart(){
+  var rows=getResumenData();
+  var wrap=document.getElementById('res-chart-wrap');
+  if(!rows.length){
+    wrap.innerHTML='<div class="empty"><div class="empty-ico">📊</div><div>Sin datos con estos filtros</div></div>';
+    return;
+  }
+
+  // Agrupar por mes (YYYY-MM) o por cliente si hay filtro de mes
+  var filterM=document.getElementById('res-month').value;
+  var filterC=document.getElementById('res-client').value;
+  var groupBy=(filterM||filterC)?'cliente':'mes';
+
+  var groups={};
+  rows.forEach(function(r){
+    var key=groupBy==='mes'?(r.m?r.y+'-'+r.m:'Sin fecha'):(r.nombre||'Sin nombre');
+    if(!groups[key]) groups[key]={key:key,capital:0,interes:0,atraso:0,descuento:0,abonado:0,restante:0};
+    groups[key].capital+=r.capital||0;
+    groups[key].interes+=r.interes||0;
+    groups[key].atraso+=r.atraso||0;
+    groups[key].descuento+=r.descuento||0;
+    groups[key].abonado+=r.abonado||0;
+    groups[key].restante+=r.restante||0;
+  });
+
+  var MESES_SHORT=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  var keys=Object.keys(groups).sort();
+
+  // Columnas a mostrar (una barra por grupo, apiladas por concepto)
+  // Cada grupo tiene 6 barras side-by-side
+  var SERIES=[
+    {key:'capital',   label:'Capital',   color:'#2563B0'},
+    {key:'interes',   label:'Interés',   color:'#16A34A'},
+    {key:'atraso',    label:'Atraso',    color:'#DC2626'},
+    {key:'descuento', label:'Descuento', color:'#3B82F6'},
+    {key:'abonado',   label:'Abonado',   color:'#7C3AED'},
+    {key:'restante',  label:'Restante',  color:'#EA580C'},
+  ];
+
+  // Max value para escalar
+  var maxVal=0;
+  keys.forEach(function(k){
+    SERIES.forEach(function(s){
+      if(groups[k][s.key]>maxVal) maxVal=groups[k][s.key];
+    });
+  });
+  if(maxVal===0) maxVal=1;
+
+  var barsHtml='';
+  keys.forEach(function(k){
+    var g=groups[k];
+    var lbl=groupBy==='mes'?(function(){var p=k.split('-');return MESES_SHORT[parseInt(p[1])||0]||k;})():k.split(' ')[0];
+    // mini bars per series within this group
+    var seriesBars='';
+    SERIES.forEach(function(s){
+      var val=g[s.key]||0;
+      var pct=Math.round(val/maxVal*130); // max 130px
+      seriesBars+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:8px;">'
+        +'<div style="font-size:7px;color:'+s.color+';font-weight:700;writing-mode:vertical-rl;transform:rotate(180deg);max-height:28px;overflow:hidden;display:'+(val>0?'block':'none')+'">'
+        +formatK(val)+'</div>'
+        +'<div style="height:'+pct+'px;background:'+s.color+';width:100%;border-radius:3px 3px 0 0;min-height:'+(val>0?'3':'0')+'px;"></div>'
+        +'</div>';
+    });
+    barsHtml+='<div class="chart-col">'
+      +'<div class="chart-bar-wrap" style="display:flex;align-items:flex-end;gap:2px;height:160px;padding-bottom:0;">'+seriesBars+'</div>'
+      +'<div class="chart-lbl" style="margin-top:4px;">'+lbl+'</div>'
+      +'</div>';
+  });
+
+  // Leyenda
+  var legendHtml='<div class="chart-legend">';
+  SERIES.forEach(function(s){
+    legendHtml+='<div class="chart-legend-item">'
+      +'<div class="chart-legend-dot" style="background:'+s.color+';"></div>'
+      +s.label+'</div>';
+  });
+  legendHtml+='</div>';
+
+  // Totales resumen
+  var totCap=0,totInt=0,totAtr=0,totDesc=0,totAbo=0,totRest=0;
+  rows.forEach(function(r){totCap+=r.capital;totInt+=r.interes;totAtr+=r.atraso||0;totDesc+=r.descuento||0;totAbo+=r.abonado||0;totRest+=r.restante||0;});
+
+  var totalesHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">';
+  [{l:'Capital',v:totCap,c:'#2563B0'},{l:'Interés',v:totInt,c:'#16A34A'},{l:'Atraso',v:totAtr,c:'#DC2626'},
+   {l:'Descuento',v:totDesc,c:'#3B82F6'},{l:'Abonado',v:totAbo,c:'#7C3AED'},{l:'Restante',v:totRest,c:'#EA580C'}]
+  .forEach(function(t){
+    totalesHtml+='<div style="background:var(--bg);border-radius:8px;padding:8px 10px;border-left:3px solid '+t.c+';">'
+      +'<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">'+t.l+'</div>'
+      +'<div style="font-size:13px;font-weight:700;font-family:DM Mono,monospace;color:'+t.c+';">'+fmt(Math.round(t.v))+'</div>'
+      +'</div>';
+  });
+  totalesHtml+='</div>';
+
+  wrap.innerHTML='<div class="chart-wrap">'
+    +'<div class="chart-title">'+( groupBy==='mes'?'Por mes':'Por cliente')+'</div>'
+    +'<div class="chart-bars">'+barsHtml+'</div>'
+    +legendHtml
+    +'</div>'
+    +'<div class="chart-wrap">'+totalesHtml+'</div>';
+}
+
+function formatK(n){
+  if(n>=1000000) return (n/1000000).toFixed(1)+'M';
+  if(n>=1000) return (n/1000).toFixed(1)+'K';
+  return String(Math.round(n));
+}
+
 function getResumenData(){
   var filterY=document.getElementById('res-year').value;
   var filterM=document.getElementById('res-month').value;
@@ -3158,6 +3302,13 @@ function renderResumen(){
     html+='</tbody></table></div>';
   }
   document.getElementById('res-table-wrap').innerHTML=html;
+  // Sync visibility with active tab
+  var isGrafica=(typeof RES_TAB!=='undefined'&&RES_TAB!=='tabla');
+  var cw=document.getElementById('res-chart-wrap');
+  var tw=document.getElementById('res-table-wrap');
+  if(cw) cw.style.display=isGrafica?'':'none';
+  if(tw) tw.style.display=isGrafica?'none':'';
+  if(isGrafica) renderResumenChart();
 }
 
 
