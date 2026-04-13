@@ -385,12 +385,13 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <div id="l-meter-wrap" style="display:none;">
       <div style="background:var(--orange-light);border-radius:var(--rs);padding:12px 14px;margin-bottom:12px;font-size:13px;color:var(--orange);line-height:1.8;">
         <strong>Préstamo por día corriente</strong><br>
-        Se cobran $15 por cada $500 prestados, empezando desde el día del préstamo (día 1).<br>
-        El interés acumula cada día hasta que el cliente pague.<br>
-        No hay fecha límite fija — el saldo sube $<span id="l-meter-daily">0</span> por día.
+        Se cobran $<span id="l-meter-daily">0</span> por día ($15 × cada $500).<br>
+        El saldo corre desde la fecha de inicio. Si se pasa de la fecha promesa, el cobro diario continúa sumándose automáticamente.
       </div>
-      <div class="fg"><label class="fl">Fecha de inicio del préstamo (día 1) *</label><input class="fi" id="l-meter-start" type="date" oninput="calcLoanPreview()"></div>
-      <div class="fg"><label class="fl">Fecha en que se registra el cobro (opcional)</label><input class="fi" id="l-meter-end" type="date" oninput="calcLoanPreview()"></div>
+      <div class="fg"><label class="fl">📅 Fecha de inicio (día 1) *</label><input class="fi" id="l-meter-start" type="date" oninput="meterStartChanged()"></div>
+      <div class="fg"><label class="fl">📅 Fecha promesa de pago *</label><input class="fi" id="l-meter-end" type="date" oninput="calcLoanPreview()">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Si el cliente paga después de esta fecha, se siguen sumando $<span id="l-meter-daily2">0</span>/día.</div>
+      </div>
       <div id="l-meter-days-info" style="font-size:12px;color:var(--blue);padding:8px 12px;background:var(--blue-light);border-radius:var(--rs);margin-bottom:10px;display:none;"></div>
     </div>
 
@@ -827,8 +828,18 @@ function computePriceBreakdown(monto,pct,freq,n,firstDate){
 // ============================================================
 function amountsForLoan(loan){
   var n=loan.num_pagos||1;
-  // daily_meter: single payment, amount already in override
-  if(loan.frecuencia==='daily_meter'){return [loan.monto+(loan.daily_charge||0)];}
+  if(loan.frecuencia==='daily_meter'){
+    // Calcular en tiempo real: días desde meter_start hasta hoy
+    // Si hoy supera meter_end, el cobro diario continúa corriendo
+    if(loan.meter_start&&loan.daily_charge){
+      var hoy=new Date();hoy.setHours(12,0,0,0);
+      var inicio=new Date(loan.meter_start+'T12:00:00');
+      var diasTranscurridos=Math.max(1,Math.floor((hoy-inicio)/86400000)+1);
+      var totalReal=Math.round((loan.monto+loan.daily_charge*diasTranscurridos)*100)/100;
+      return [totalReal];
+    }
+    return [loan.monto+(loan.daily_charge||0)];
+  }
   var total=(loan.monto||0)*(1+(loan.interes||0)/100)+(loan.proration||0);
   var perPay=Math.floor((total/n)*100)/100;
   var arr=[];
@@ -1256,6 +1267,17 @@ function renderDPay(){
         html+='<div class="pi'+pc+'" onclick="openEditPay(\''+loan.id+'\','+i+')" style="cursor:pointer;">'
           +'<div class="pi-top"><div class="pi-ico" style="background:'+ibg+'">'+ico+'</div>'
           +'<div class="pi-info"><div class="pi-name">'+(p.concept||loan.concepto)+' · Pago '+(i+1)+'/'+sched.length+'</div>'
+          +(loan.frecuencia==='daily_meter'&&loan.meter_start&&loan.daily_charge?(function(){
+            var hoy=new Date();hoy.setHours(12,0,0,0);
+            var ini=new Date(loan.meter_start+'T12:00:00');
+            var dias=Math.max(1,Math.floor((hoy-ini)/86400000)+1);
+            var promesa=loan.meter_end?'Promesa: '+fmtDate(loan.meter_end):'';
+            var pasado=loan.meter_end&&todayStr()>loan.meter_end;
+            return '<div style="font-size:11px;margin-top:2px;">'
+              +'<span style="color:var(--orange);font-weight:600;">⏱ '+dias+' días corridos × '+fmt(loan.daily_charge)+'</span>'
+              +(promesa?'<span style="color:'+(pasado?'var(--red)':'var(--muted)')+';margin-left:6px;">'+(pasado?'⚠ ':'')+''+promesa+'</span>':'')
+              +'</div>';
+          })():'')
           +'<div class="'+dc+'">'+fmtDate(p.date)+'</div>'+pill+'</div>'+amtHtml+'</div>'
           +breakdownHtml
           +'<div class="pi-actions">'
@@ -1354,7 +1376,12 @@ function getSched(loan){
   for(var i=0;i<n;i++){
     var o=ov[i]||{};
     var abonado=getAbonado(loan.id,i,payments);
-    var baseAmt=o.amount!==undefined?o.amount:amounts[i];
+    var baseAmt;
+    if(loan.frecuencia==='daily_meter'){
+      baseAmt=amounts[i]; // siempre tiempo real
+    }else{
+      baseAmt=o.amount!==undefined?o.amount:amounts[i];
+    }
     var elimOv=o.eliminado||false;
     var status=o.status||(abonado>=baseAmt-0.009&&baseAmt>0?'pagado':abonado>0?'parcial':'pendiente');
     // eliminado counts as pagado for pending list (it's gone), but we store it
@@ -1413,6 +1440,7 @@ function loanFreqChange(){
   if(isMeter){
     document.getElementById('l-meter-start').value=todayStr();
     document.getElementById('l-meter-end').value='';
+    document.getElementById('l-meter-end').min=todayStr();
   }
   if(isFixed){
     document.getElementById('l-fixed-paydate').value='';
@@ -1457,6 +1485,15 @@ function buildDailyDates(){
   }
   container.innerHTML=html;
 }
+function meterStartChanged(){
+  var start=document.getElementById('l-meter-start').value;
+  var endEl=document.getElementById('l-meter-end');
+  if(start){
+    endEl.min=start; // fecha promesa no puede ser anterior al inicio
+    if(endEl.value&&endEl.value<start) endEl.value=start;
+  }
+  calcLoanPreview();
+}
 function calcLoanPreview(){
   var amt=parseFloat(document.getElementById('l-amount').value)||0;
   var pct=parseFloat(document.getElementById('l-interest').value)||0;
@@ -1470,6 +1507,7 @@ function calcLoanPreview(){
     var mEnd=document.getElementById('l-meter-end').value;
     var dailyCharge=Math.round(mAmt/500)*15;
     document.getElementById('l-meter-daily').textContent=dailyCharge.toLocaleString('es-MX');
+    var d2=document.getElementById('l-meter-daily2');if(d2)d2.textContent=dailyCharge.toLocaleString('es-MX');
     var txt='Capital: '+fmt(mAmt)+'\nCobro por día: '+fmt(dailyCharge)+' ($15 x cada $500)';
     if(mStart&&mEnd&&mEnd>=mStart){
       var dias=daysBetween(mStart,mEnd)+1;
@@ -1533,16 +1571,17 @@ function saveLoan(){
     if(!mStart){showNotif('Selecciona la fecha de inicio del préstamo');return;}
     var dailyCharge=Math.round(amt/500)*15;
     var mEnd=document.getElementById('l-meter-end').value;
-    var dias=mEnd&&mEnd>=mStart?daysBetween(mStart,mEnd)+1:1;
-    var interesAcum=dailyCharge*dias;
+    if(!mEnd){showNotif('Selecciona la fecha promesa de pago');return;}
+    if(mEnd<mStart){showNotif('La fecha promesa debe ser igual o posterior al inicio');return;}
+    var diasPactados=daysBetween(mStart,mEnd)+1;
+    var interesAcum=dailyCharge*diasPactados;
     var total=amt+interesAcum;
     loans.push({id:loanId,cliente_id:cid,concepto:con,monto:amt,interes:0,num_pagos:1,
-      frecuencia:'daily_meter',first_date:mStart,meter_start:mStart,meter_end:mEnd||'',
+      frecuencia:'daily_meter',first_date:mStart,meter_start:mStart,meter_end:mEnd,
       daily_charge:dailyCharge,proration:0,fecha_creacion:todayStr()});
     DB.loans=loans;
-    // Save single payment override with computed total (can be updated later)
-    var payDate=mEnd||mStart;
-    saveOv(loanId,0,{date:payDate,amount:total,concept:con+' ('+dias+' días × '+fmt(dailyCharge)+')'});
+    // Override inicial basado en días pactados; se recalcula en tiempo real
+    saveOv(loanId,0,{date:mEnd,amount:total,concept:con+' ('+diasPactados+' días × '+fmt(dailyCharge)+')'});
 
   }else if(freq==='daily_fixed'){
     // Fixed loan: 1 pago, capital + % interés fijo, single paydate
@@ -2807,15 +2846,8 @@ function getResumenData(){
       var atr=calcAtraso(l,pi,p);
       var desc=(p.descuento||0);
       var abonado=(p.abonado||0);
-      var isDailyMeter=(l.frecuencia==='daily_meter');
-      var baseAmount=p.amount;
-      if(isDailyMeter&&l.daily_charge&&l.meter_start&&p.status!=='pagado'){
-        var mStart=new Date(l.meter_start+'T12:00:00');
-        var mHoy=new Date();mHoy.setHours(12,0,0,0);
-        var diasReales=Math.max(1,Math.floor((mHoy-mStart)/86400000)+1);
-        baseAmount=Math.round((l.monto+l.daily_charge*diasReales)*100)/100;
-      }
-      var totalConAtr=Math.round(Math.max(0,baseAmount+atr.monto-desc)*100)/100;
+      // daily_meter: p.amount ya viene calculado en tiempo real por amountsForLoan/getSched
+      var totalConAtr=Math.round(Math.max(0,p.amount+atr.monto-desc)*100)/100;
       var restante=Math.max(0,Math.round((totalConAtr-abonado)*100)/100);
       rows.push({
         fecha:fecha,y:y,m:m,
