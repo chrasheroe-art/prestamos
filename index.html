@@ -344,6 +344,13 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <div class="fg" id="pr-paydate-wrap" style="display:none;"><label class="fl">Fecha de pago *</label><input class="fi" id="pr-paydate" type="date" onchange="calcProp()">
       <div id="pr-days-info" style="font-size:12px;color:var(--blue);background:var(--blue-light);border-radius:var(--rs);padding:8px 12px;margin-top:6px;display:none;"></div>
     </div>
+    <div id="pr-meter-wrap" style="display:none;">
+      <div class="fg"><label class="fl">📅 Fecha de inicio (día 1)</label><input class="fi" id="pr-meter-start" type="date" onchange="propMeterStartChanged()"></div>
+      <div class="fg"><label class="fl">📅 Fecha promesa de pago</label><input class="fi" id="pr-meter-end" type="date" onchange="calcProp()">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Si paga después, el cobro diario sigue corriendo.</div>
+      </div>
+      <div id="pr-meter-info" style="font-size:12px;color:var(--blue);padding:8px 12px;background:var(--blue-light);border-radius:var(--rs);margin-top:6px;display:none;"></div>
+    </div>
     <div class="fg"><label class="fl">Cliente (para enviar por WhatsApp)</label><select class="fi fsel" id="pr-client" onchange="propClientChange()"><option value="">Selecciona cliente (opcional)</option></select></div>
     <div id="pr-result" style="display:none;" class="prop-result">
       <div class="prop-result-title">📊 Resumen de la propuesta</div>
@@ -1438,8 +1445,9 @@ function loanFreqChange(){
   document.getElementById('l-daily-dates-wrap').style.display='none';
   if(!isMeter&&!isFixed) document.getElementById('l-firstdate').value=suggestFirstDate(freq);
   if(isMeter){
-    document.getElementById('l-meter-start').value=todayStr();
-    document.getElementById('l-meter-end').value='';
+    document.getElementById('l-meter-start').value=ps.meterStart||todayStr();
+    document.getElementById('l-meter-end').value=ps.meterEnd||'';
+    document.getElementById('l-meter-end').min=ps.meterStart||todayStr();
     document.getElementById('l-meter-end').min=todayStr();
   }
   if(isFixed){
@@ -2101,11 +2109,29 @@ function propFreqChange(){
   document.getElementById('pr-npay-wrap').style.display=(isMeter||isFixed)?'none':'';
   document.getElementById('pr-firstdate-wrap').style.display=(isMeter||isFixed)?'none':'';
   document.getElementById('pr-paydate-wrap').style.display=isFixed?'':'none';
+  document.getElementById('pr-meter-wrap').style.display=isMeter?'':'none';
   if(!isMeter&&!isFixed){
     var sfFreq=freq==='daily_fixed'?'daily':freq;
     document.getElementById('pr-firstdate').value=suggestFirstDate(sfFreq);
   }
   if(isFixed) document.getElementById('pr-paydate').value='';
+  if(isMeter){
+    document.getElementById('pr-meter-start').value=todayStr();
+    document.getElementById('pr-meter-end').value='';
+    document.getElementById('pr-meter-end').min=todayStr();
+  }
+  // Defaults de interés según frecuencia
+  var defaults={weekly:40,biweekly:50,monthly:65};
+  if(defaults[freq]!==undefined) document.getElementById('pr-interest').value=defaults[freq];
+  calcProp();
+}
+function propMeterStartChanged(){
+  var start=document.getElementById('pr-meter-start').value;
+  var endEl=document.getElementById('pr-meter-end');
+  if(start){
+    endEl.min=start;
+    if(endEl.value&&endEl.value<start) endEl.value=start;
+  }
   calcProp();
 }
 
@@ -2147,19 +2173,35 @@ function calcProp(){
   var dates=isFixed&&paydate?[paydate]:(fd?[fd]:[]);
   if(!isMeter&&!isFixed) for(var k=1;k<n;k++) dates.push(calcDateFromFirst(fd,freq,k));
   var dc=Math.round(amt/500)*15;
-  document.getElementById('pr-total').textContent=isMeter?fmt(amt+dc):isFixed?fmt(fixedTotal):fmt(res.total);
+  // Para daily_meter: calcular con fechas reales del simulador
+  var prMeterStart=isMeter?document.getElementById('pr-meter-start').value:'';
+  var prMeterEnd=isMeter?document.getElementById('pr-meter-end').value:'';
+  var mDiasPactados=1;
+  if(isMeter&&prMeterStart&&prMeterEnd&&prMeterEnd>=prMeterStart){
+    mDiasPactados=daysBetween(prMeterStart,prMeterEnd)+1;
+  }
+  var mTotalPactado=isMeter?Math.round((amt+dc*mDiasPactados)*100)/100:0;
+  // Mostrar info de días
+  if(isMeter&&prMeterStart&&prMeterEnd){
+    var infoEl=document.getElementById('pr-meter-info');
+    if(infoEl){infoEl.style.display='';infoEl.textContent='Día 1: '+fmtDate(prMeterStart)+' → '+fmtDate(prMeterEnd)+' = '+mDiasPactados+' días · Total: '+fmt(mTotalPactado);}
+  }else if(isMeter){
+    var infoEl=document.getElementById('pr-meter-info');
+    if(infoEl) infoEl.style.display='none';
+  }
+  document.getElementById('pr-total').textContent=isMeter?fmt(mTotalPactado||amt+dc):isFixed?fmt(fixedTotal):fmt(res.total);
 
   // Show Capital, Interés, Total
   var rows='';
   if(freq==='daily_meter'){
-    var dc=Math.round(amt/500)*15;
-    var mDays=n||1;
     rows='<div class="prop-row"><span class="prop-row-lbl">Capital</span><span class="prop-row-val">'+fmt(amt)+'</span></div>'
       +'<div class="prop-row" style="background:var(--orange-light);border-radius:6px;padding:6px 10px;margin:4px 0;">'
-      +'<span class="prop-row-lbl" style="color:var(--orange);">Cobro diario ('+fmt(dc)+' x día)</span>'
-      +'<span class="prop-row-val" style="color:var(--orange);">×'+mDays+' días = '+fmt(dc*mDays)+'</span></div>'
+      +'<span class="prop-row-lbl" style="color:var(--orange);">Cobro diario ('+fmt(dc)+' × día)</span>'
+      +'<span class="prop-row-val" style="color:var(--orange);">×'+mDiasPactados+' días = '+fmt(dc*mDiasPactados)+'</span></div>'
+      +(prMeterStart?'<div class="prop-row" style="font-size:12px;color:var(--muted);"><span>Inicio:</span><span>'+fmtDate(prMeterStart)+'</span></div>':'')
+      +(prMeterEnd?'<div class="prop-row" style="font-size:12px;color:var(--muted);"><span>Promesa:</span><span>'+fmtDate(prMeterEnd)+'</span></div>':'')
       +'<div class="prop-row" style="font-size:14px;font-weight:700;border-top:2px solid var(--border);">'
-      +'<span class="prop-row-lbl">Total si paga en '+mDays+' día'+(mDays>1?'s':'')+'</span><span class="prop-row-val">'+fmt(amt+dc*mDays)+'</span></div>';
+      +'<span class="prop-row-lbl">Total si paga en '+mDiasPactados+' día'+(mDiasPactados>1?'s':'')+'</span><span class="prop-row-val">'+fmt(amt+dc*mDiasPactados)+'</span></div>';
   }else{
     rows='<div class="prop-row"><span class="prop-row-lbl">Capital</span><span class="prop-row-val">'+fmt(amt)+'</span></div>';
     if(isFixed){
@@ -2181,13 +2223,17 @@ function calcProp(){
   var dhtml='';
   if(freq==='daily_meter'){
     var dc3=Math.round(amt/500)*15;
+    var pms=document.getElementById('pr-meter-start').value;
+    var pme=document.getElementById('pr-meter-end').value;
+    var diasP=1;
+    if(pms&&pme&&pme>=pms) diasP=daysBetween(pms,pme)+1;
     dhtml='<div class="prop-date-item" style="background:var(--orange-light);border-radius:var(--rs);padding:12px 14px;">'
       +'<span style="font-size:13px;color:var(--orange);line-height:1.9;">'
-      +'<strong>Sin fecha límite fija.</strong><br>'
-      +'El interés corre desde el día 1 (día del préstamo).<br>'
-      +'Cobro: '+fmt(dc3)+' por día ('+fmt(amt)+'÷500 × $15).<br>'
-      +'Ejemplo de cuánto debe si paga en N días:<br>'
-      +(function(){var s='';for(var d=[1,3,5,7,10,15,30],i=0;i<d.length;i++)s+='→ '+d[i]+' día'+(d[i]>1?'s':'')+': '+fmt(amt+dc3*d[i])+'<br>';return s;})()
+      +(pms?'<strong>Inicio:</strong> '+fmtDate(pms)+'<br>':'')
+      +(pme?'<strong>Promesa:</strong> '+fmtDate(pme)+' ('+diasP+' días)<br>':'')
+      +'<strong>Cobro diario:</strong> '+fmt(dc3)+' ('+fmt(amt)+'÷500 × $15)<br>'
+      +'<strong>Total pactado:</strong> '+fmt(amt+dc3*diasP)+'<br>'
+      +'<br>Si paga después de la fecha promesa, se siguen sumando '+fmt(dc3)+'/día.<br>'
       +'</span></div>';
   }else{
     dates.forEach(function(d,i){dhtml+='<div class="prop-date-item"><span class="pdi-num">'+(i+1)+'</span><span class="pdi-date">'+fmtDate(d)+'</span><span class="pdi-amt">'+fmt(amounts[i])+'</span></div>';});
@@ -2261,16 +2307,21 @@ function sendPropWA(){
   var fixedTotal=isFixed?amt+fixedInter:0;
   var msg='';
   if(isMeter){
-    msg='Buen día, envío la propuesta para un préstamo de '+fmt(amt)+' para pago por día, quedo pendiente de confirmación.\n\n';
+    var pmS=document.getElementById('pr-meter-start').value;
+    var pmE=document.getElementById('pr-meter-end').value;
+    var diasPact=(pmS&&pmE&&pmE>=pmS)?daysBetween(pmS,pmE)+1:1;
+    msg='Buen día, envío la propuesta para un préstamo de '+fmt(amt)+' por día corriente, quedo pendiente de confirmación.\n\n';
     msg+='📅 Tipo: Préstamo por día corriente\n';
     msg+='💰 Capital: '+fmt(amt)+'\n';
-    msg+='💵 Cobro por día: '+fmt(dc)+' ($15 por cada $500)\n';
-    msg+='⚡ El interés corre cada día desde el día del préstamo (día 1).\n\n';
-    msg+='Ejemplo de cuánto deberías si pagas en:\n';
-    [1,3,5,7,10,15,30].forEach(function(d){msg+='  '+d+' día'+(d>1?'s':'')+': '+fmt(amt+dc*d)+'\n';});
+    msg+='💵 Cobro diario: '+fmt(dc)+' ($15 × cada $500)\n';
+    if(pmS) msg+='📅 Fecha de inicio: '+fmtDate(pmS)+'\n';
+    if(pmE) msg+='📅 Fecha promesa: '+fmtDate(pmE)+' ('+diasPact+' días)\n';
+    msg+='💵 Total pactado: '+fmt(amt+dc*diasPact)+'\n';
+    msg+='\n⚠ Si no liquida en la fecha promesa, se seguirán sumando '+fmt(dc)+'/día.\n';
     msg+='\n📌 Condiciones:\n'
       +'• Cobro: $15 por cada $500 por día\n'
-      +'• Día 1 = el mismo día del préstamo';
+      +'• Día 1 = fecha de inicio del préstamo\n'
+      +'• En caso de no abonar en la fecha promesa, el cobro diario continúa';
   }else if(isFixed){
     msg='Buen día, envío la propuesta para un préstamo de '+fmt(amt)+' en un solo pago, quedo pendiente de confirmación.\n\n';
     msg+='📅 Tipo: Préstamo fijo\n';
@@ -2332,7 +2383,11 @@ function usarPropuesta(){
   var meterStart=isMeter?document.getElementById('pr-amount').value:''; // solo para señal
   if(isFixed&&!fixedPaydate){showNotif('Selecciona la fecha de pago en la propuesta');return;}
   if(!isMeter&&!isFixed&&!fd){showNotif('Selecciona la fecha del primer pago');return;}
-  S._propState={amt:amt,pct:pct,n:n,freq:freq,fd:fd,fixedPaydate:fixedPaydate,isMeter:isMeter,isFixed:isFixed};
+  var mStart2=isMeter?document.getElementById('pr-meter-start').value:'';
+  var mEnd2=isMeter?document.getElementById('pr-meter-end').value:'';
+  if(isMeter&&!mStart2){showNotif('Selecciona la fecha de inicio del préstamo');return;}
+  if(isMeter&&!mEnd2){showNotif('Selecciona la fecha promesa de pago');return;}
+  S._propState={amt:amt,pct:pct,n:n,freq:freq,fd:fd,fixedPaydate:fixedPaydate,isMeter:isMeter,isFixed:isFixed,meterStart:mStart2,meterEnd:mEnd2};
   closeProp();
   _openLoanFromProp();
 }
@@ -2364,8 +2419,9 @@ function _openLoanFromProp(){
     document.getElementById('l-npay-wrap').style.display='none';
     document.getElementById('l-firstdate-wrap').style.display='none';
     document.getElementById('l-fixed-paydate-wrap').style.display='none';
-    document.getElementById('l-meter-start').value=todayStr();
-    document.getElementById('l-meter-end').value='';
+    document.getElementById('l-meter-start').value=ps.meterStart||todayStr();
+    document.getElementById('l-meter-end').value=ps.meterEnd||'';
+    document.getElementById('l-meter-end').min=ps.meterStart||todayStr();
   }else if(ps.isFixed){
     document.getElementById('l-meter-wrap').style.display='none';
     document.getElementById('l-pct-wrap').style.display='';
