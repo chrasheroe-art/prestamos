@@ -683,6 +683,14 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
         <option value="vencidos">Todos los vencidos</option>
         <option value="proximos" selected>Vencidos + próximos (alertdays días)</option>
       </select>
+      <select id="cobrar-orden" onchange="renderCobrarHoy()" style="flex:1;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:inherit;background:var(--surface);outline:none;">
+        <option value="fecha_asc">📅 Fecha ↑ antigua</option>
+        <option value="fecha_desc">📅 Fecha ↓ reciente</option>
+        <option value="monto_desc">💰 Mayor monto</option>
+        <option value="monto_asc">💰 Menor monto</option>
+        <option value="nombre_asc">🔤 Nombre A→Z</option>
+        <option value="atraso_desc">⏰ Mayor atraso</option>
+      </select>
     </div>
     <div id="cobrar-list"></div>
   </div>
@@ -1065,8 +1073,21 @@ function renderCobrarHoy(){
       items.push({loan:loan,cl:cl,p:p,i:i,diffDays:diffDays,restante:restante,atr:atr});
     });
   });
-  // Ordenar: primero vencidos más antiguos, luego por fecha
-  items.sort(function(a,b){return new Date(a.p.date)-new Date(b.p.date);});
+  // Ordenar según selector
+  var ordenEl=document.getElementById('cobrar-orden');
+  var orden=ordenEl?ordenEl.value:'fecha_asc';
+  items.sort(function(a,b){
+    if(orden==='fecha_asc')   return new Date(a.p.date)-new Date(b.p.date);
+    if(orden==='fecha_desc')  return new Date(b.p.date)-new Date(a.p.date);
+    if(orden==='monto_desc')  return b.restante-a.restante;
+    if(orden==='monto_asc')   return a.restante-b.restante;
+    if(orden==='nombre_asc'){
+      var na=(a.cl?a.cl.nombre:''),nb=(b.cl?b.cl.nombre:'');
+      return na.localeCompare(nb,'es');
+    }
+    if(orden==='atraso_desc') return (b.atr.monto||0)-(a.atr.monto||0);
+    return new Date(a.p.date)-new Date(b.p.date);
+  });
   var subtitle=items.length+' pago'+(items.length!==1?'s':'')+' pendiente'+(items.length!==1?'s':'');
   document.getElementById('cobrar-subtitle').textContent=subtitle;
   if(!items.length){
