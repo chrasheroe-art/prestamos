@@ -721,8 +721,8 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     </div>
     <!-- Tabs: Gráfica / Tabla -->
     <div class="res-tabs">
-      <button class="res-tab-btn active" id="res-tab-grafica" onclick="switchResTab('grafica')">📊 Gráfica</button>
-      <button class="res-tab-btn" id="res-tab-tabla" onclick="switchResTab('tabla')">📋 Tabla</button>
+      <button class="res-tab-btn active" id="res-tab-tabla" onclick="switchResTab('tabla')">📋 Tabla</button>
+      <button class="res-tab-btn" id="res-tab-grafica" onclick="switchResTab('grafica')">📊 Gráfica</button>
     </div>
     <!-- Gráfica -->
     <div id="res-chart-wrap"></div>
@@ -3038,7 +3038,7 @@ function closeResumen(){
 // ============================================================
 // RESUMEN — Tabs y gráfica
 // ============================================================
-var RES_TAB='grafica';
+var RES_TAB='tabla';
 
 function switchResTab(tab){
   RES_TAB=tab;
@@ -3105,7 +3105,7 @@ function renderResumenChart(){
     var seriesBars='';
     SERIES.forEach(function(s){
       var val=g[s.key]||0;
-      var pct=Math.round(val/maxVal*130); // max 130px
+      var pct=Math.round(val/maxVal*210); // max 130px
       seriesBars+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:8px;">'
         +'<div style="font-size:7px;color:'+s.color+';font-weight:700;writing-mode:vertical-rl;transform:rotate(180deg);max-height:28px;overflow:hidden;display:'+(val>0?'block':'none')+'">'
         +formatK(val)+'</div>'
@@ -3113,7 +3113,7 @@ function renderResumenChart(){
         +'</div>';
     });
     barsHtml+='<div class="chart-col">'
-      +'<div class="chart-bar-wrap" style="display:flex;align-items:flex-end;gap:2px;height:160px;padding-bottom:0;">'+seriesBars+'</div>'
+      +'<div class="chart-bar-wrap" style="display:flex;align-items:flex-end;gap:2px;height:220px;padding-bottom:0;">'+seriesBars+'</div>'
       +'<div class="chart-lbl" style="margin-top:4px;">'+lbl+'</div>'
       +'</div>';
   });
@@ -3142,12 +3142,12 @@ function renderResumenChart(){
   });
   totalesHtml+='</div>';
 
-  wrap.innerHTML='<div class="chart-wrap">'
+  wrap.innerHTML='<div class="chart-wrap">'+totalesHtml+'</div>'
+    +'<div class="chart-wrap">'
     +'<div class="chart-title">'+( groupBy==='mes'?'Por mes':'Por cliente')+'</div>'
-    +'<div class="chart-bars">'+barsHtml+'</div>'
+    +'<div class="chart-bars" style="height:240px;">'+barsHtml+'</div>'
     +legendHtml
-    +'</div>'
-    +'<div class="chart-wrap">'+totalesHtml+'</div>';
+    +'</div>';
 }
 
 function formatK(n){
@@ -3303,7 +3303,7 @@ function renderResumen(){
   }
   document.getElementById('res-table-wrap').innerHTML=html;
   // Sync visibility with active tab
-  var isGrafica=(typeof RES_TAB!=='undefined'&&RES_TAB!=='tabla');
+  var isGrafica=(typeof RES_TAB!=='undefined'&&RES_TAB==='grafica');
   var cw=document.getElementById('res-chart-wrap');
   var tw=document.getElementById('res-table-wrap');
   if(cw) cw.style.display=isGrafica?'':'none';
