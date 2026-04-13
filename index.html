@@ -445,6 +445,30 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
       <div id="ep-tipo" class="fi" style="background:var(--bg);color:var(--muted);cursor:default;font-size:13px;padding:10px 14px;">—</div>
     </div>
 
+    <!-- 3b. Fecha promesa (solo daily_meter) -->
+    <div id="ep-meter-wrap" style="display:none;background:var(--orange-light);border-radius:var(--rs);padding:12px 14px;margin-bottom:13px;">
+      <div style="font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">📅 Préstamo por día corriente</div>
+      <div style="font-size:12px;color:var(--orange);margin-bottom:10px;" id="ep-meter-info">—</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <div style="flex:1;min-width:120px;">
+          <label style="font-size:10px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px;">Fecha inicio</label>
+          <input type="date" id="ep-meter-start" class="fi" style="padding:8px 10px;font-size:13px;" readonly>
+        </div>
+        <div style="flex:1;min-width:120px;">
+          <label style="font-size:10px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px;">Fecha promesa</label>
+          <input type="date" id="ep-meter-end" class="fi" style="padding:8px 10px;font-size:13px;" oninput="updateEpMeter()">
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="font-size:12px;color:var(--orange);" id="ep-meter-calc">—</div>
+        <button id="ep-meter-freeze-btn" onclick="toggleEpMeterFreeze()"
+          style="margin-left:auto;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;background:var(--orange);color:#fff;">
+          🔒 Congelar cálculo
+        </button>
+      </div>
+      <input type="hidden" id="ep-meter-frozen" value="0">
+    </div>
+
     <!-- 4. Concepto -->
     <div class="fg"><label class="fl">4. Concepto</label><input class="fi" id="ep-concept" type="text"></div>
 
@@ -836,8 +860,16 @@ function computePriceBreakdown(monto,pct,freq,n,firstDate){
 function amountsForLoan(loan){
   var n=loan.num_pagos||1;
   if(loan.frecuencia==='daily_meter'){
+    // Si el cálculo está congelado, usar la fecha promesa del override
+    var ov0=(DB.overrides[loan.id]&&DB.overrides[loan.id][0])||{};
+    if(ov0.meter_frozen&&loan.meter_start&&loan.daily_charge){
+      var mEndOv=ov0.meter_end_override||loan.meter_end||'';
+      if(mEndOv&&mEndOv>=loan.meter_start){
+        var diasCongelados=daysBetween(loan.meter_start,mEndOv)+1;
+        return [Math.round((loan.monto+loan.daily_charge*diasCongelados)*100)/100];
+      }
+    }
     // Calcular en tiempo real: días desde meter_start hasta hoy
-    // Si hoy supera meter_end, el cobro diario continúa corriendo
     if(loan.meter_start&&loan.daily_charge){
       var hoy=new Date();hoy.setHours(12,0,0,0);
       var inicio=new Date(loan.meter_start+'T12:00:00');
@@ -1666,6 +1698,22 @@ function openEditPay(lid,idx){
   var freqLabels={biweekly:'Quincenal',weekly:'Semanal',monthly:'Mensual',daily_fixed:'Fijo (pago único)',daily_meter:'Por día corriente'};
   var tipoLabel=(freqLabels[loan.frecuencia]||loan.frecuencia||'—')+' · Pago '+(idx+1)+'/'+sched.length;
   document.getElementById('ep-tipo').textContent=tipoLabel;
+  // Sección daily_meter
+  var meterWrap=document.getElementById('ep-meter-wrap');
+  if(loan.frecuencia==='daily_meter'){
+    meterWrap.style.display='';
+    var ov_m=(DB.overrides[loan.id]&&DB.overrides[loan.id][idx])||{};
+    var frozen=ov_m.meter_frozen||false;
+    document.getElementById('ep-meter-frozen').value=frozen?'1':'0';
+    document.getElementById('ep-meter-start').value=loan.meter_start||'';
+    // Fecha promesa: usar override si existe, sino la del loan
+    document.getElementById('ep-meter-end').value=ov_m.meter_end_override||loan.meter_end||'';
+    document.getElementById('ep-meter-end').min=loan.meter_start||'';
+    updateEpMeterFreezeBtn(frozen);
+    updateEpMeter();
+  }else{
+    meterWrap.style.display='none';
+  }
   // Atraso
   var atrCalc=calcAtraso(loan,idx,p);
   document.getElementById('ep-atraso-dias').value=atrCalc.dias||0;
@@ -1686,6 +1734,81 @@ function openEditPay(lid,idx){
   updateEpAbonoResta(lid,idx);
   updateEpTotal();
   openModal('m-ep');
+}
+
+// ============================================================
+// EDITAR PAGO — Daily Meter helpers
+// ============================================================
+function updateEpMeter(){
+  var lid=document.getElementById('ep-lid').value;
+  var idx=parseInt(document.getElementById('ep-idx').value);
+  var loan=DB.loans.find(function(l){return String(l.id)===String(lid);});
+  if(!loan||loan.frecuencia!=='daily_meter') return;
+  var frozen=document.getElementById('ep-meter-frozen').value==='1';
+  var mStart=loan.meter_start||'';
+  var mEnd=document.getElementById('ep-meter-end').value||loan.meter_end||'';
+  var dc=loan.daily_charge||0;
+  var capital=loan.monto||0;
+  // Calcular según fecha promesa elegida
+  var diasPactados=1;
+  if(mStart&&mEnd&&mEnd>=mStart) diasPactados=daysBetween(mStart,mEnd)+1;
+  var interesPactado=Math.round(dc*diasPactados*100)/100;
+  var totalPactado=Math.round((capital+interesPactado)*100)/100;
+  // Info de días corridos hasta hoy
+  var hoy=new Date();hoy.setHours(12,0,0,0);
+  var inicio=mStart?new Date(mStart+'T12:00:00'):hoy;
+  var diasHoy=Math.max(1,Math.floor((hoy-inicio)/86400000)+1);
+  var totalHoy=Math.round((capital+dc*diasHoy)*100)/100;
+  var pasado=mEnd&&todayStr()>mEnd;
+  // Mostrar info
+  var infoEl=document.getElementById('ep-meter-info');
+  infoEl.innerHTML='Cobro diario: <strong>'+fmt(dc)+'</strong> · '
+    +(mEnd?'Promesa: <strong>'+fmtDate(mEnd)+'</strong> ('+diasPactados+' días) · Total pactado: <strong>'+fmt(totalPactado)+'</strong>':'Selecciona fecha promesa')
+    +(pasado?'<br><span style="color:var(--red);font-weight:700;">⚠ Fecha promesa vencida — hoy son '+diasHoy+' días corridos = '+fmt(totalHoy)+'</span>':'');
+  var calcEl=document.getElementById('ep-meter-calc');
+  if(frozen){
+    calcEl.innerHTML='🔒 Congelado en <strong>'+fmt(totalPactado)+'</strong>';
+  }else{
+    calcEl.innerHTML='Total a cobrar hoy: <strong>'+fmt(totalHoy)+'</strong>';
+  }
+  // Actualizar campos de capital e interés
+  var useTotal=frozen?totalPactado:totalHoy;
+  document.getElementById('ep-capital').value=capital;
+  document.getElementById('ep-interest').value=Math.round((useTotal-capital)*100)/100;
+  updateEpTotal();
+}
+
+function updateEpMeterFreezeBtn(frozen){
+  var btn=document.getElementById('ep-meter-freeze-btn');
+  if(frozen){
+    btn.textContent='🔓 Descongelar';
+    btn.style.background='var(--green)';
+    btn.style.color='#fff';
+    document.getElementById('ep-meter-end').style.borderColor='var(--green)';
+  }else{
+    btn.textContent='🔒 Congelar cálculo';
+    btn.style.background='var(--orange)';
+    btn.style.color='#fff';
+    document.getElementById('ep-meter-end').style.borderColor='';
+  }
+}
+
+function toggleEpMeterFreeze(){
+  var lid=document.getElementById('ep-lid').value;
+  var idx=parseInt(document.getElementById('ep-idx').value);
+  var frozenEl=document.getElementById('ep-meter-frozen');
+  var frozen=frozenEl.value==='1';
+  frozen=!frozen;
+  frozenEl.value=frozen?'1':'0';
+  updateEpMeterFreezeBtn(frozen);
+  // Guardar en override inmediatamente
+  var mEnd=document.getElementById('ep-meter-end').value;
+  saveOv(lid,idx,{meter_frozen:frozen,meter_end_override:mEnd});
+  updateEpMeter();
+  autoBackup();
+  refreshDetailHeader();
+  renderDPay();
+  renderMain();
 }
 
 function updateEpTotal(){
@@ -1802,8 +1925,16 @@ function saveEditPay(){
       DB.loans=loans;
     }
   }
-  // Guardar override con días de atraso
-  saveOv(lid,idx,{concept:con,amount:amt,date:date,status:status,notes:notes,descuento:desc,atraso_dias:atrDias});
+  // Guardar override — incluir datos daily_meter si aplica
+  var loan2=DB.loans.find(function(l){return String(l.id)===String(lid);});
+  var ovFields={concept:con,amount:amt,date:date,status:status,notes:notes,descuento:desc,atraso_dias:atrDias};
+  if(loan2&&loan2.frecuencia==='daily_meter'){
+    var mEndOvEl=document.getElementById('ep-meter-end');
+    var mFrozenEl=document.getElementById('ep-meter-frozen');
+    if(mEndOvEl) ovFields.meter_end_override=mEndOvEl.value;
+    if(mFrozenEl) ovFields.meter_frozen=(mFrozenEl.value==='1');
+  }
+  saveOv(lid,idx,ovFields);
   autoBackup();
   showNotif('✓ Pago actualizado');
   refreshDetailHeader();
