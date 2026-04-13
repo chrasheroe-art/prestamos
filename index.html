@@ -207,6 +207,18 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
 .res-body{padding:14px;flex:1;}
 .res-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;}
 .res-table th{background:var(--blue);color:#fff;padding:8px 10px;text-align:left;font-weight:600;font-size:12px;}
+.res-table th.sortable{cursor:pointer;user-select:none;white-space:nowrap;}
+.res-table th.sortable:hover{background:var(--blue-mid);}
+.res-table th .sort-arrow{font-size:9px;margin-left:3px;opacity:.6;}
+.res-table th.sort-asc .sort-arrow::after{content:'▲';}
+.res-table th.sort-desc .sort-arrow::after{content:'▼';}
+.res-status-checks{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.res-status-checks label{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;cursor:pointer;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface);}
+.res-status-checks input[type=checkbox]{width:14px;height:14px;cursor:pointer;}
+.res-status-checks label.chk-pendiente{border-color:var(--muted);color:var(--muted);}
+.res-status-checks label.chk-parcial{border-color:var(--orange);color:var(--orange);}
+.res-status-checks label.chk-pagado{border-color:var(--green);color:var(--green);}
+.res-status-checks input:checked+span{font-weight:700;}
 .res-table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
 .res-table tr:nth-child(even) td{background:var(--bg);}
 .res-total-row td{background:var(--blue-light)!important;font-weight:700;color:var(--blue);font-size:13px;}
@@ -652,13 +664,13 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
         <label>Cliente</label>
         <select id="res-client" onchange="renderResumen()"><option value="">Todos</option></select>
       </div>
-      <div class="res-filter">
-        <label>Estado</label>
-        <select id="res-status" onchange="renderResumen()">
-          <option value="">Todos</option>
-          <option value="pendiente">Pendiente</option>
-          <option value="pagado">Pagado</option>
-        </select>
+      <div class="res-filter" style="flex-basis:100%;min-width:100%;">
+        <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px;">Estado</label>
+        <div class="res-status-checks">
+          <label class="chk-pendiente"><input type="checkbox" id="res-st-pendiente" value="pendiente" checked onchange="renderResumen()"><span>⏳ Pendiente</span></label>
+          <label class="chk-parcial"><input type="checkbox" id="res-st-parcial" value="parcial" checked onchange="renderResumen()"><span>🔄 Parcial</span></label>
+          <label class="chk-pagado"><input type="checkbox" id="res-st-pagado" value="pagado" checked onchange="renderResumen()"><span>✅ Pagado</span></label>
+        </div>
       </div>
     </div>
     <div id="res-table-wrap"></div>
@@ -2768,7 +2780,12 @@ function getResumenData(){
   var filterY=document.getElementById('res-year').value;
   var filterM=document.getElementById('res-month').value;
   var filterC=document.getElementById('res-client').value;
-  var filterStatus=document.getElementById('res-status')?document.getElementById('res-status').value:'';
+  // Multi-select estado
+  var activeStatus={};
+  ['pendiente','parcial','pagado'].forEach(function(s){
+    var el=document.getElementById('res-st-'+s);
+    activeStatus[s]=el?el.checked:true;
+  });
   var loans=DB.loans;
   var rows=[];
   loans.forEach(function(l){
@@ -2785,12 +2802,11 @@ function getResumenData(){
       if(filterY&&y!==filterY) return;
       if(filterM&&m!==filterM) return;
       var pStatus=p.status||'pendiente';
-      if(filterStatus&&pStatus!==filterStatus) return;
+      if(!activeStatus[pStatus]) return;
       var pay_int=Math.round(Math.max(0,p.amount-pay_cap)*100)/100;
       var atr=calcAtraso(l,pi,p);
       var desc=(p.descuento||0);
       var abonado=(p.abonado||0);
-      // Para daily_meter: total real = capital + (días desde meter_start a hoy) × daily_charge
       var isDailyMeter=(l.frecuencia==='daily_meter');
       var baseAmount=p.amount;
       if(isDailyMeter&&l.daily_charge&&l.meter_start&&p.status!=='pagado'){
@@ -2819,22 +2835,66 @@ function getResumenData(){
       });
     });
   });
-  rows.sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');});
   return rows;
+}
+
+// Estado de ordenamiento del resumen
+var RES_SORT={col:'fecha',dir:-1}; // -1=desc, 1=asc
+
+function sortResumen(col){
+  if(RES_SORT.col===col) RES_SORT.dir*=-1;
+  else{RES_SORT.col=col;RES_SORT.dir=-1;}
+  renderResumen();
 }
 
 var MESES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function renderResumen(){
   var rows=getResumenData();
+
+  // Ordenar por columna seleccionada
+  var col=RES_SORT.col,dir=RES_SORT.dir;
+  rows.sort(function(a,b){
+    var av,bv;
+    if(col==='fecha'){av=a.fecha;bv=b.fecha;return dir*((av||'').localeCompare(bv||''));}
+    if(col==='nombre'){return dir*((a.nombre||'').localeCompare(b.nombre||'','es'));}
+    if(col==='capital'){av=a.capital;bv=b.capital;}
+    else if(col==='interes'){av=a.interes;bv=b.interes;}
+    else if(col==='descuento'){av=a.descuento;bv=b.descuento;}
+    else if(col==='atraso'){av=a.atraso;bv=b.atraso;}
+    else if(col==='abonado'){av=a.abonado;bv=b.abonado;}
+    else if(col==='restante'){av=a.restante;bv=b.restante;}
+    else if(col==='status'){av=a.status;bv=b.status;return dir*((av||'').localeCompare(bv||''));}
+    else{av=a.fecha;bv=b.fecha;return dir*((av||'').localeCompare(bv||''));}
+    return dir*(av-bv);
+  });
+
   var totalCap=0,totalInt=0,totalDesc=0,totalAtr=0,totalAbo=0,totalTot=0;
   rows.forEach(function(r){totalCap+=r.capital;totalInt+=r.interes;totalDesc+=r.descuento;totalAtr+=(r.atraso||0);totalAbo+=(r.abonado||0);totalTot+=r.restante;});
   document.getElementById('res-subtitle').textContent=rows.length+' pago'+(rows.length!==1?'s':'');
+
   var html='';
   if(!rows.length){
     html='<div class="empty"><div class="empty-ico">📋</div><div>Sin pagos con estos filtros</div></div>';
   }else{
+    // Helper para encabezado sortable
+    function th(label,col2,extraStyle){
+      var active=RES_SORT.col===col2;
+      var cls='sortable'+(active?(RES_SORT.dir===-1?' sort-desc':' sort-asc'):'');
+      var style=extraStyle?(' style="'+extraStyle+'"'):'';
+      return '<th class="'+cls+'"'+style+' onclick="sortResumen(\''+col2+'\')\">'+label+'<span class="sort-arrow"></span></th>';
+    }
     html='<div style="overflow-x:auto;"><table class="res-table"><thead><tr>'
-      +'<th>Cliente</th><th>Concepto</th><th>Fecha pago</th><th>Capital</th><th>Interés</th><th style="color:#93C5FD;">Descuento</th><th style="color:var(--red);">Atraso</th><th style="color:var(--purple);">Abonado</th><th>Restante</th><th>Estado</th><th></th>'
+      +'<th class="sortable'+(RES_SORT.col==='nombre'?(RES_SORT.dir===-1?' sort-desc':' sort-asc'):'')+'\" onclick="sortResumen(\'nombre\')">Cliente<span class="sort-arrow"></span></th>'
+      +'<th>Concepto</th>'
+      +th('Fecha','fecha')
+      +th('Capital','capital','text-align:right;')
+      +th('Interés','interes','text-align:right;color:#86EFAC;')
+      +th('Desc.','descuento','text-align:right;color:#93C5FD;')
+      +th('Atraso','atraso','text-align:right;color:#FCA5A5;')
+      +th('Abonado','abonado','text-align:right;color:#D8B4FE;')
+      +th('Restante','restante','text-align:right;')
+      +th('Estado','status','text-align:center;')
+      +'<th></th>'
       +'</tr></thead><tbody>';
     rows.forEach(function(r){
       var fechaDisplay=r.fecha?fmtDate(r.fecha):'';
@@ -2869,6 +2929,7 @@ function renderResumen(){
   }
   document.getElementById('res-table-wrap').innerHTML=html;
 }
+
 
 function deleteLoanFromResumen(loanId){
   if(!confirm('¿Eliminar este préstamo del historial? Esta acción no se puede deshacer.'))return;
