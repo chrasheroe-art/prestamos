@@ -3057,81 +3057,43 @@ function renderResumenChart(){
     return;
   }
 
-  // Agrupar por mes (YYYY-MM) o por cliente si hay filtro de mes
+  // Agrupar por cliente o por mes según filtros activos
   var filterM=document.getElementById('res-month').value;
   var filterC=document.getElementById('res-client').value;
   var groupBy=(filterM||filterC)?'cliente':'mes';
+
+  var MESES_SHORT=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   var groups={};
   rows.forEach(function(r){
     var key=groupBy==='mes'?(r.m?r.y+'-'+r.m:'Sin fecha'):(r.nombre||'Sin nombre');
     if(!groups[key]) groups[key]={key:key,capital:0,interes:0,atraso:0,descuento:0,abonado:0,restante:0};
-    groups[key].capital+=r.capital||0;
-    groups[key].interes+=r.interes||0;
-    groups[key].atraso+=r.atraso||0;
-    groups[key].descuento+=r.descuento||0;
-    groups[key].abonado+=r.abonado||0;
-    groups[key].restante+=r.restante||0;
+    groups[key].capital   +=r.capital||0;
+    groups[key].interes   +=r.interes||0;
+    groups[key].atraso    +=r.atraso||0;
+    groups[key].descuento +=r.descuento||0;
+    groups[key].abonado   +=r.abonado||0;
+    groups[key].restante  +=r.restante||0;
   });
 
-  var MESES_SHORT=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   var keys=Object.keys(groups).sort();
 
-  // Columnas a mostrar (una barra por grupo, apiladas por concepto)
-  // Cada grupo tiene 6 barras side-by-side
-  var SERIES=[
-    {key:'capital',   label:'Capital',   color:'#2563B0'},
-    {key:'interes',   label:'Interés',   color:'#16A34A'},
-    {key:'atraso',    label:'Atraso',    color:'#DC2626'},
-    {key:'descuento', label:'Descuento', color:'#3B82F6'},
-    {key:'abonado',   label:'Abonado',   color:'#7C3AED'},
-    {key:'restante',  label:'Restante',  color:'#EA580C'},
-  ];
-
-  // Max value para escalar
+  // Escala: el máximo es el mayor "restante" de todos los grupos
+  // (restante = capital+interes+atraso-descuento-abonado = altura total de la barra)
   var maxVal=0;
-  keys.forEach(function(k){
-    SERIES.forEach(function(s){
-      if(groups[k][s.key]>maxVal) maxVal=groups[k][s.key];
-    });
-  });
+  keys.forEach(function(k){ if(groups[k].restante>maxVal) maxVal=groups[k].restante; });
   if(maxVal===0) maxVal=1;
+  var BAR_H=200; // px altura máxima de barra
 
-  var barsHtml='';
-  keys.forEach(function(k){
-    var g=groups[k];
-    var lbl=groupBy==='mes'?(function(){var p=k.split('-');return MESES_SHORT[parseInt(p[1])||0]||k;})():k.split(' ')[0];
-    // mini bars per series within this group
-    var seriesBars='';
-    SERIES.forEach(function(s){
-      var val=g[s.key]||0;
-      var pct=Math.round(val/maxVal*210); // max 130px
-      seriesBars+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:8px;">'
-        +'<div style="font-size:7px;color:'+s.color+';font-weight:700;writing-mode:vertical-rl;transform:rotate(180deg);max-height:28px;overflow:hidden;display:'+(val>0?'block':'none')+'">'
-        +formatK(val)+'</div>'
-        +'<div style="height:'+pct+'px;background:'+s.color+';width:100%;border-radius:3px 3px 0 0;min-height:'+(val>0?'3':'0')+'px;"></div>'
-        +'</div>';
-    });
-    barsHtml+='<div class="chart-col">'
-      +'<div class="chart-bar-wrap" style="display:flex;align-items:flex-end;gap:2px;height:220px;padding-bottom:0;">'+seriesBars+'</div>'
-      +'<div class="chart-lbl" style="margin-top:4px;">'+lbl+'</div>'
-      +'</div>';
-  });
-
-  // Leyenda
-  var legendHtml='<div class="chart-legend">';
-  SERIES.forEach(function(s){
-    legendHtml+='<div class="chart-legend-item">'
-      +'<div class="chart-legend-dot" style="background:'+s.color+';"></div>'
-      +s.label+'</div>';
-  });
-  legendHtml+='</div>';
-
-  // Totales resumen
+  // Totales para las tarjetas
   var totCap=0,totInt=0,totAtr=0,totDesc=0,totAbo=0,totRest=0;
-  rows.forEach(function(r){totCap+=r.capital;totInt+=r.interes;totAtr+=r.atraso||0;totDesc+=r.descuento||0;totAbo+=r.abonado||0;totRest+=r.restante||0;});
+  rows.forEach(function(r){
+    totCap+=r.capital; totInt+=r.interes; totAtr+=r.atraso||0;
+    totDesc+=r.descuento||0; totAbo+=r.abonado||0; totRest+=r.restante;
+  });
 
-  var totalesHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">';
+  // Tarjetas de totales (mismos valores que la tabla)
+  var totalesHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px;">';
   [{l:'Capital',v:totCap,c:'#2563B0'},{l:'Interés',v:totInt,c:'#16A34A'},{l:'Atraso',v:totAtr,c:'#DC2626'},
    {l:'Descuento',v:totDesc,c:'#3B82F6'},{l:'Abonado',v:totAbo,c:'#7C3AED'},{l:'Restante',v:totRest,c:'#EA580C'}]
   .forEach(function(t){
@@ -3142,19 +3104,93 @@ function renderResumenChart(){
   });
   totalesHtml+='</div>';
 
-  wrap.innerHTML='<div class="chart-wrap">'+totalesHtml+'</div>'
+  // ── GRÁFICA DE BARRAS APILADAS ──────────────────────────────
+  // Cada barra = un grupo (cliente o mes)
+  // Segmentos apilados de abajo a arriba: Abonado | Capital | Interés | Atraso
+  //   - Abonado (morado) en la base → lo que ya se cobró
+  //   - Capital (azul) + Interés (verde) + Atraso (rojo) encima → lo pendiente
+  // Altura total de la barra = Restante de las tarjetas
+  // Tooltip al tocar: valores exactos por segmento
+
+  var barsHtml='';
+  keys.forEach(function(k){
+    var g=groups[k];
+    var lbl=groupBy==='mes'
+      ?(function(){ var p=k.split('-'); return (MESES_SHORT[parseInt(p[1])||0]||k)+'\n'+p[0]; })()
+      :k.split(' ')[0];
+
+    var rest=g.restante||0;
+    var totalBar=rest; // altura total = restante
+    if(totalBar<=0) return;
+
+    // Proporciones de cada segmento dentro de la barra
+    var hTotal=Math.round(rest/maxVal*BAR_H);
+
+    // Componentes del restante: cap + int + atr - desc - abo = rest
+    // Los mostramos como segmentos proporcionales a su valor dentro de rest
+    var compTotal=g.capital+g.interes+g.atraso; // suma antes de descuento y abono
+    if(compTotal<=0) compTotal=1;
+
+    // Cada segmento: altura proporcional a su fracción del restante
+    function seg(val,color,label){
+      if(val<=0) return '';
+      var h=Math.max(2, Math.round(val/maxVal*BAR_H));
+      return '<div title="'+label+': $'+Math.round(val).toLocaleString('es-MX')+'"'
+        +' style="width:100%;height:'+h+'px;background:'+color
+        +';transition:height .3s;cursor:default;">'
+        +'</div>';
+    }
+
+    // Orden visual de abajo a arriba: Atraso | Interés | Capital | Abonado (base)
+    // Base = abonado (ya pagado, en la parte inferior)
+    // Encima: componentes pendientes apilados
+    var stackHtml=''
+      +seg(g.atraso,   '#DC2626','Atraso')    // rojo arriba
+      +seg(g.interes,  '#16A34A','Interés')   // verde
+      +seg(g.capital,  '#2563B0','Capital')   // azul
+      +seg(g.abonado,  '#7C3AED','Abonado');  // morado base
+
+    // Etiqueta de valor total sobre la barra
+    var totalLabel='<div style="font-size:9px;font-family:DM Mono,monospace;font-weight:700;'
+      +'color:var(--text);text-align:center;margin-bottom:3px;white-space:nowrap;">'
+      +formatK(rest)+'</div>';
+
+    // Barra con segmentos invertidos (CSS flex-direction:column → arriba=primer hijo)
+    barsHtml+='<div class="chart-col" style="flex:1;min-width:40px;max-width:90px;">'
+      +totalLabel
+      +'<div style="width:100%;height:'+BAR_H+'px;display:flex;flex-direction:column;'
+      +'justify-content:flex-end;overflow:hidden;border-radius:4px 4px 0 0;">'
+      +stackHtml
+      +'</div>'
+      +'<div class="chart-lbl" style="margin-top:5px;white-space:pre-line;line-height:1.3;">'
+      +lbl+'</div>'
+      +'</div>';
+  });
+
+  // Leyenda
+  var legendHtml='<div class="chart-legend" style="margin-top:14px;">'
+    +'<div class="chart-legend-item"><div class="chart-legend-dot" style="background:#7C3AED;"></div>Abonado (cobrado)</div>'
+    +'<div class="chart-legend-item"><div class="chart-legend-dot" style="background:#2563B0;"></div>Capital pendiente</div>'
+    +'<div class="chart-legend-item"><div class="chart-legend-dot" style="background:#16A34A;"></div>Interés pendiente</div>'
+    +'<div class="chart-legend-item"><div class="chart-legend-dot" style="background:#DC2626;"></div>Atraso</div>'
+    +'</div>';
+
+  wrap.innerHTML=totalesHtml
     +'<div class="chart-wrap">'
-    +'<div class="chart-title">'+( groupBy==='mes'?'Por mes':'Por cliente')+'</div>'
-    +'<div class="chart-bars" style="height:520px;">'+barsHtml+'</div>'
+    +'<div class="chart-title">'+(groupBy==='mes'?'Por mes':'Por cliente')
+    +' <span style="font-size:10px;font-weight:400;color:var(--muted);">— altura de barra = Restante</span></div>'
+    +'<div class="chart-bars" style="height:'+(BAR_H+60)+'px;align-items:flex-end;padding-bottom:4px;">'
+    +barsHtml+'</div>'
     +legendHtml
     +'</div>';
 }
 
 function formatK(n){
-  if(n>=1000000) return (n/1000000).toFixed(1)+'M';
-  if(n>=1000) return (n/1000).toFixed(1)+'K';
-  return String(Math.round(n));
+  if(n>=1000000) return '$'+(n/1000000).toFixed(1)+'M';
+  if(n>=1000) return '$'+(n/1000).toFixed(1)+'K';
+  return '$'+String(Math.round(n));
 }
+
 
 function getResumenData(){
   var filterY=document.getElementById('res-year').value;
