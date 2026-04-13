@@ -1291,8 +1291,9 @@ function renderDPay(){
           :'<span class="pill p-blue">Pendiente</span>';
         // Desglose capital + interés + atraso − descuento − abonado = restante
         var loan_n=loan.num_pagos||1;
-        var pay_cap=Math.round((loan.monto||0)/loan_n*100)/100;
-        var pay_int=Math.round(Math.max(0,p.amount-pay_cap)*100)/100;
+        var ov_card=(DB.overrides[loan.id]&&DB.overrides[loan.id][i])||{};
+        var pay_cap=ov_card.capital!==undefined?ov_card.capital:Math.round((loan.monto||0)/loan_n*100)/100;
+        var pay_int=ov_card.interes!==undefined?ov_card.interes:Math.round(Math.max(0,p.amount-pay_cap)*100)/100;
         var breakdownHtml='<div style="font-size:11px;font-family:DM Mono,monospace;padding:5px 0 2px;display:flex;flex-wrap:wrap;align-items:center;gap:3px;">'
           +'<span style="color:var(--muted);">'+fmt(pay_cap)+'</span>'
           +'<span style="color:var(--muted);font-size:10px;">+</span>'
@@ -1418,8 +1419,13 @@ function getSched(loan){
     var baseAmt;
     if(loan.frecuencia==='daily_meter'){
       baseAmt=amounts[i]; // siempre tiempo real
+    }else if(o.capital!==undefined&&o.interes!==undefined){
+      // capital e interes editados manualmente — reconstruir total desde esos valores
+      baseAmt=Math.round((o.capital+o.interes)*100)/100;
+    }else if(o.amount!==undefined){
+      baseAmt=o.amount;
     }else{
-      baseAmt=o.amount!==undefined?o.amount:amounts[i];
+      baseAmt=amounts[i];
     }
     var elimOv=o.eliminado||false;
     var status=o.status||(abonado>=baseAmt-0.009&&baseAmt>0?'pagado':abonado>0?'parcial':'pendiente');
@@ -1676,8 +1682,10 @@ function openEditPay(lid,idx){
   var p=sched[idx];
   var cl=DB.clients.find(function(c){return String(c.id)===String(loan.cliente_id);});
   var loan_n=loan.num_pagos||1;
-  var cap=Math.round((loan.monto||0)/loan_n*100)/100;
-  var inter=Math.round(Math.max(0,p.amount-cap)*100)/100;
+  var ov_ep=(DB.overrides[loan.id]&&DB.overrides[loan.id][idx])||{};
+  // Usar capital/interes guardados en override si existen; si no, calcular
+  var cap=ov_ep.capital!==undefined?ov_ep.capital:Math.round((loan.monto||0)/loan_n*100)/100;
+  var inter=ov_ep.interes!==undefined?ov_ep.interes:Math.round(Math.max(0,p.amount-cap)*100)/100;
   // Poblar selector de clientes
   var csel=document.getElementById('ep-client');
   var clients=DB.clients.slice().sort(function(a,b){return a.nombre.localeCompare(b.nombre,'es');});
@@ -1927,7 +1935,9 @@ function saveEditPay(){
   }
   // Guardar override — incluir datos daily_meter si aplica
   var loan2=DB.loans.find(function(l){return String(l.id)===String(lid);});
-  var ovFields={concept:con,amount:amt,date:date,status:status,notes:notes,descuento:desc,atraso_dias:atrDias};
+  var epCap=parseFloat(document.getElementById('ep-capital').value)||0;
+  var epInter=parseFloat(document.getElementById('ep-interest').value)||0;
+  var ovFields={concept:con,amount:amt,capital:epCap,interes:epInter,date:date,status:status,notes:notes,descuento:desc,atraso_dias:atrDias};
   if(loan2&&loan2.frecuencia==='daily_meter'){
     var mEndOvEl=document.getElementById('ep-meter-end');
     var mFrozenEl=document.getElementById('ep-meter-frozen');
@@ -3019,9 +3029,10 @@ function getResumenData(){
     var cl=DB.clients.find(function(c){return String(c.id)===String(l.cliente_id);});
     var nombre=cl?cl.nombre:'Sin nombre';
     var loan_n=l.num_pagos||1;
-    var pay_cap=Math.round((l.monto||0)/loan_n*100)/100;
     var sched=getSched(l);
     sched.forEach(function(p,pi){
+      var ov_r=(DB.overrides[l.id]&&DB.overrides[l.id][pi])||{};
+      var pay_cap=ov_r.capital!==undefined?ov_r.capital:Math.round((l.monto||0)/loan_n*100)/100;
       var fecha=p.date||'';
       var y=fecha.substring(0,4);
       var m=fecha.substring(5,7);
@@ -3029,7 +3040,7 @@ function getResumenData(){
       if(filterM&&m!==filterM) return;
       var pStatus=p.status||'pendiente';
       if(!activeStatus[pStatus]) return;
-      var pay_int=Math.round(Math.max(0,p.amount-pay_cap)*100)/100;
+      var pay_int=ov_r.interes!==undefined?ov_r.interes:Math.round(Math.max(0,p.amount-pay_cap)*100)/100;
       var atr=calcAtraso(l,pi,p);
       var desc=(p.descuento||0);
       var abonado=(p.abonado||0);
