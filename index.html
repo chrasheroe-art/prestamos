@@ -553,6 +553,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <div class="fg"><label class="fl">12. Notas</label><input class="fi" id="ep-notes" type="text" placeholder="Opcional"></div>
 
     <!-- 13. Guardar / Cerrar -->
+    <button class="btn-p" onclick="pagarDesdeBoton(document.getElementById('ep-lid').value,parseInt(document.getElementById('ep-idx').value))" style="margin-top:6px;background:var(--green);border-color:var(--green);">💳 Registrar pago completo</button>
     <button class="btn-p" onclick="saveEditPay()" style="margin-top:6px;">💾 Guardar cambios</button>
     <button class="btn-o" onclick="closeModal('m-ep')" style="margin-top:8px;">Cerrar</button>
   </div>
@@ -1343,7 +1344,7 @@ function renderDPay(){
           +'<div class="'+dc+'">'+fmtDate(p.date)+'</div>'+pill+'</div>'+amtHtml+'</div>'
           +breakdownHtml
           +'<div class="pi-actions">'
-          +'<button class="pi-btn pbw" onclick="event.stopPropagation();sendWA(\''+loan.id+'\','+i+')">📱 WA</button>'
+          +'<button class="pi-btn" style="background:var(--green-light);color:var(--green);font-weight:700;" onclick="event.stopPropagation();pagarDesdeBoton(\''+loan.id+'\','+i+')">💳 Pagar</button>'
           +'<button class="pi-btn pbr" onclick="event.stopPropagation();deletePay(\''+loan.id+'\','+i+')">🗑 Eliminar</button>'
           +'<button class="pi-btn pbd" onclick="event.stopPropagation();openAlertModal(\''+loan.id+'\','+i+',\''+p.date+'\')">'+(hasAlert(loan.id,i)?'🔔 Alerta ✓':'🔔 Alerta')+'</button>'
           +'</div></div>';
@@ -1408,12 +1409,11 @@ function sendWA(lid,idx){
     var atrWA=calcAtraso(loan,idx,p);
     var totalWA=Math.max(0,Math.round((p.amount+atrWA.monto-(p.descuento||0))*100)/100);
     var restanteWA=Math.max(0,totalWA-abonado);
-    msg='Hola '+cl.nombre+', te recuerdo que hoy vence tu pago '+(idx+1)+' de '+sched.length
-      +' de tu préstamo "'+loan.concepto+'". '
-      +'Te solicito '+fmt(restanteWA)
-      +(abonado>0?' (ya te acredité '+fmt(abonado)+' de abono previo)':'')
+    msg='Buen día '+cl.nombre+', te comento que hoy es tu día de pago por '+fmt(restanteWA)
+      +', correspondiente al pago '+(idx+1)+' de '+sched.length
+      +(abonado>0?', ya te acredité '+fmt(abonado)+' de abono previo':'')
       +(atrWA.monto>0?'. Te informo que se generó una penalización de '+fmt(atrWA.monto)+' por atraso':'')
-      +'. Quedo pendiente de tu pago. Gracias.';
+      +'. Quedo pendiente, gracias.';
   }else{
     msg='Hola '+cl.nombre+', te recuerdo que tienes un saldo pendiente de '+fmt(S._total)+'. Te pido que te pongas en contacto para que coordinemos tu pago. Gracias.';
   }
@@ -2040,6 +2040,119 @@ function updateEpAbonoResta(lid,idx){
   var restante=Math.max(0,totalFinal-(p.abonado||0));
   var el=document.getElementById('ep-abono-resta');
   if(el) el.textContent=restante>0?'Resta: '+fmt(restante):'✅ Saldado';
+}
+
+
+// ============================================================
+// PAGAR DESDE BOTÓN — lógica completa con validaciones
+// Exacto → liquida | Menor → abono | Mayor → cascada
+// Mayor que deuda total → error
+// ============================================================
+function pagarDesdeBoton(lid, idx){
+  var loan = DB.loans.find(function(l){ return String(l.id)===String(lid); });
+  if(!loan){ showNotif('Préstamo no encontrado'); return; }
+  var sched = getSched(loan);
+  var p     = sched[idx];
+
+  // Calcular total real de ESTE pago (con atraso y descuento)
+  var atr       = calcAtraso(loan, idx, p);
+  var descuento = p.descuento||0;
+  var totalPago = Math.max(0, Math.round((p.amount + atr.monto - descuento)*100)/100);
+  var abonado   = p.abonado||0;
+  var restantePago = Math.max(0, Math.round((totalPago - abonado)*100)/100);
+
+  // Calcular deuda total del cliente (todos sus préstamos)
+  var clientLoans = DB.loans.filter(function(l){
+    return String(l.cliente_id)===String(loan.cliente_id);
+  });
+  var deudaTotal = clientLoans.reduce(function(s,l){ return s+remDebt(l); }, 0);
+
+  var promptMsg='Pago '+(idx+1)+'/'+sched.length+' - '+fmt(totalPago)+(abonado>0?' (abonado: '+fmt(abonado)+')':'')+'. Resta: '+fmt(restantePago)+'. Deuda total: '+fmt(deudaTotal)+'. Monto:';
+  var monto=parseFloat(prompt(promptMsg));;
+
+  if(!monto || isNaN(monto) || monto <= 0){ return; }
+  monto = Math.round(monto*100)/100;
+
+  // Validar que no supere la deuda total del cliente
+  if(monto > Math.round(deudaTotal*100)/100 + 0.009){
+    showNotif('⚠ El monto ingresado ('+fmt(monto)+') es mayor a la deuda total ('+fmt(deudaTotal)+'). No se puede registrar.');
+    return;
+  }
+
+  var fecha  = todayStr();
+  var payments = DB.payments;
+  var remaining = monto;
+  var i = idx;
+  var pagoLiquidado = false;
+
+  while(remaining > 0.009 && i < sched.length){
+    var pi = sched[i];
+    if(pi.status==='pagado'){ i++; continue; }
+    var atrI    = calcAtraso(loan, i, pi);
+    var descI   = pi.descuento||0;
+    var totalI  = Math.max(0, Math.round((pi.amount + atrI.monto - descI)*100)/100);
+    var abI     = pi.abonado||0;
+    var restI   = Math.max(0, Math.round((totalI - abI)*100)/100);
+    var toApply = Math.min(remaining, restI);
+
+    if(toApply > 0.009){
+      payments.push({
+        id: 'p'+Date.now()+'x'+i,
+        prestamo_id: lid,
+        cliente_id:  loan.cliente_id,
+        monto:       Math.round(toApply*100)/100,
+        fecha:       fecha,
+        notas:       (i===idx ? 'Pago' : 'Excedente → Pago '+(i+1)),
+        estado:      'abono',
+        pago_index:  i
+      });
+      var newAbonado = abI + toApply;
+      var newStatus  = newAbonado >= totalI - 0.009 ? 'pagado' : 'parcial';
+      if(i===idx && newStatus==='pagado') pagoLiquidado = true;
+      saveOv(lid, i, {status: newStatus});
+    }
+    remaining -= toApply;
+    i++;
+  }
+
+  DB.payments = payments;
+  autoBackup();
+
+  // Verificar liquidación total del cliente
+  var allDone = clientLoans.every(function(l){ return isLiq(l); });
+
+  if(allDone){
+    var cl = DB.clients.find(function(c){ return String(c.id)===String(loan.cliente_id); });
+    var nombre = cl ? cl.nombre : 'El cliente';
+    // Enviar WA de liquidación si tiene teléfono
+    if(cl && (cl.telefono||'').replace(/\D/g,'').length >= 10){
+      var phone = buildPhone(cl);
+      var msgLiq = 'Buen día '+nombre+', te confirmo que tu deuda ha quedado completamente liquidada. '
+        +'Gracias por tu puntualidad.';
+      setTimeout(function(){
+        if(confirm('¿Enviar mensaje de liquidación por WhatsApp a '+nombre+'?')){
+          window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msgLiq),'_blank');
+        }
+      }, 400);
+    }
+    showNotifSuccess(nombre+' — deuda liquidada al 100% ✅', 4000);
+    closeModal('m-ep');
+    setTimeout(function(){ closeDetail(); renderMain(); }, 3200);
+  } else if(pagoLiquidado){
+    var pagosRestantes = clientLoans.reduce(function(s,l){ return s+pendCnt(l); }, 0);
+    showNotif('✅ Pago '+(idx+1)+' liquidado'+(remaining<=0.009&&monto>restantePago+0.009?' · Excedente aplicado al siguiente pago':'')
+      +' · Quedan '+pagosRestantes+' pago'+(pagosRestantes!==1?'s':'')+' pendiente'+(pagosRestantes!==1?'s':''));
+    closeModal('m-ep');
+    refreshDetailHeader();
+    renderDPay();
+    renderMain();
+  } else {
+    showNotif('✓ Abono de '+fmt(monto)+' registrado en pago '+(idx+1));
+    closeModal('m-ep');
+    refreshDetailHeader();
+    renderDPay();
+    renderMain();
+  }
 }
 
 function saveEpAbono(){
