@@ -726,6 +726,16 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
       <button class="res-tab-btn" id="res-tab-grafica" onclick="switchResTab('grafica')">📊 Gráfica</button>
     </div>
     <!-- Gráfica -->
+    <div id="res-chart-controls" style="display:none;margin-bottom:10px;">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Agrupar por:</span>
+        <select id="res-chart-group" onchange="renderResumenChart()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text);outline:none;">
+          <option value="pago_mes">📅 Mes del pago</option>
+          <option value="prestamo_mes">🗓 Mes de inicio del préstamo</option>
+          <option value="cliente">👤 Por cliente</option>
+        </select>
+      </div>
+    </div>
     <div id="res-chart-wrap"></div>
     <!-- Tabla -->
     <div id="res-table-wrap"></div>
@@ -1341,7 +1351,7 @@ function renderDPay(){
               +(promesa?'<span style="color:'+(pasado?'var(--red)':'var(--muted)')+';margin-left:6px;">'+(pasado?'⚠ ':'')+''+promesa+'</span>':'')
               +'</div>';
           })():'')
-          +'<div class="'+dc+'">'+fmtDate(p.date)+'</div>'+pill+'</div>'+amtHtml+'</div>'
+          +(loan.fecha_prestamo||loan.fecha_creacion?'<div style="font-size:10px;color:var(--muted);margin-top:1px;">📅 Inicio: '+fmtDate(loan.fecha_prestamo||loan.fecha_creacion)+'</div>':'')          +'<div class="'+dc+'">'+fmtDate(p.date)+'</div>'+pill+'</div>'+amtHtml+'</div>'
           +breakdownHtml
           +'<div class="pi-actions">'
           +'<button class="pi-btn" style="background:var(--green-light);color:var(--green);font-weight:700;" onclick="event.stopPropagation();pagarDesdeBoton(\''+loan.id+'\','+i+')">💳 Pagar</button>'
@@ -1646,7 +1656,7 @@ function saveLoan(){
     var total=amt+interesAcum;
     loans.push({id:loanId,cliente_id:cid,concepto:con,monto:amt,interes:0,num_pagos:1,
       frecuencia:'daily_meter',first_date:mStart,meter_start:mStart,meter_end:mEnd,
-      daily_charge:dailyCharge,proration:0,fecha_creacion:todayStr()});
+      daily_charge:dailyCharge,proration:0,fecha_creacion:todayStr(),fecha_prestamo:todayStr()});
     DB.loans=loans;
     // Override inicial basado en días pactados; se recalcula en tiempo real
     saveOv(loanId,0,{date:mEnd,amount:total,concept:con+' ('+diasPactados+' días × '+fmt(dailyCharge)+')'});
@@ -1660,7 +1670,7 @@ function saveLoan(){
     var fixedInter=Math.round(amt*pct/100*100)/100;
     var fixedTotal=amt+fixedInter;
     loans.push({id:loanId,cliente_id:cid,concepto:con,monto:amt,interes:pct,num_pagos:n,
-      frecuencia:'daily_fixed',first_date:fd,proration:0,fecha_creacion:todayStr()});
+      frecuencia:'daily_fixed',first_date:fd,proration:0,fecha_creacion:todayStr(),fecha_prestamo:todayStr()});
     DB.loans=loans;
     saveOv(loanId,0,{date:fd,amount:fixedTotal});
 
@@ -1672,7 +1682,7 @@ function saveLoan(){
     if(!fd2){showNotif('Selecciona la fecha del primer pago');return;}
     var res2=computePriceBreakdown(amt,pct2,freq,n2,fd2);
     loans.push({id:loanId,cliente_id:cid,concepto:con,monto:amt,interes:pct2,num_pagos:n2,
-      frecuencia:freq,first_date:fd2,proration:res2.proration,fecha_creacion:todayStr()});
+      frecuencia:freq,first_date:fd2,proration:res2.proration,fecha_creacion:todayStr(),fecha_prestamo:todayStr()});
     DB.loans=loans;
   }
 
@@ -3158,6 +3168,7 @@ function switchResTab(tab){
   document.getElementById('res-tab-grafica').classList.toggle('active',tab==='grafica');
   document.getElementById('res-tab-tabla').classList.toggle('active',tab==='tabla');
   document.getElementById('res-chart-wrap').style.display=tab==='grafica'?'':'none';
+  document.getElementById('res-chart-controls').style.display=tab==='grafica'?'':'none';
   document.getElementById('res-table-wrap').style.display=tab==='tabla'?'':'none';
   if(tab==='grafica') renderResumenChart();
 }
@@ -3170,16 +3181,25 @@ function renderResumenChart(){
     return;
   }
 
-  // Agrupar por cliente o por mes según filtros activos
   var filterM=document.getElementById('res-month').value;
   var filterC=document.getElementById('res-client').value;
-  var groupBy=(filterM||filterC)?'cliente':'mes';
+  var groupSelEl=document.getElementById('res-chart-group');
+  var groupSel=groupSelEl?groupSelEl.value:'pago_mes';
+  var groupBy=filterC?'cliente':groupSel;
 
   var MESES_SHORT=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   var groups={};
   rows.forEach(function(r){
-    var key=groupBy==='mes'?(r.m?r.y+'-'+r.m:'Sin fecha'):(r.nombre||'Sin nombre');
+    var key;
+    if(groupBy==='cliente'){
+      key=r.nombre||'Sin nombre';
+    }else if(groupBy==='prestamo_mes'){
+      var fp=r.fecha_prestamo||'';
+      key=fp?(fp.substring(0,4)+'-'+fp.substring(5,7)):'Sin fecha';
+    }else{
+      key=r.m?(r.y+'-'+r.m):'Sin fecha';
+    }
     if(!groups[key]) groups[key]={key:key,capital:0,interes:0,atraso:0,descuento:0,abonado:0,restante:0};
     groups[key].capital   +=r.capital||0;
     groups[key].interes   +=r.interes||0;
@@ -3228,9 +3248,9 @@ function renderResumenChart(){
   var barsHtml='';
   keys.forEach(function(k){
     var g=groups[k];
-    var lbl=groupBy==='mes'
+    var lbl=(groupBy==='pago_mes'||groupBy==='prestamo_mes')
       ?(function(){ var p=k.split('-'); return (MESES_SHORT[parseInt(p[1])||0]||k)+'\n'+p[0]; })()
-      :k.split(' ')[0];
+      :k.split(' ').slice(0,2).join(' ');
 
     var rest=g.restante||0;
     var totalBar=rest; // altura total = restante
@@ -3290,7 +3310,7 @@ function renderResumenChart(){
 
   wrap.innerHTML=totalesHtml
     +'<div class="chart-wrap">'
-    +'<div class="chart-title">'+(groupBy==='mes'?'Por mes':'Por cliente')
+    +'<div class="chart-title">'+(groupBy==='cliente'?'Por cliente':groupBy==='prestamo_mes'?'Por mes de inicio del préstamo':'Por mes del pago')
     +' <span style="font-size:10px;font-weight:400;color:var(--muted);">— altura de barra = Restante</span></div>'
     +'<div class="chart-bars" style="height:'+(BAR_H+60)+'px;align-items:flex-end;padding-bottom:4px;">'
     +barsHtml+'</div>'
@@ -3340,8 +3360,11 @@ function getResumenData(){
       // daily_meter: p.amount ya viene calculado en tiempo real por amountsForLoan/getSched
       var totalConAtr=Math.round(Math.max(0,p.amount+atr.monto-desc)*100)/100;
       var restante=Math.max(0,Math.round((totalConAtr-abonado)*100)/100);
+      var fp=l.fecha_prestamo||l.fecha_creacion||'';
       rows.push({
         fecha:fecha,y:y,m:m,
+        fecha_prestamo:fp,
+        fp_y:fp.substring(0,4),fp_m:fp.substring(5,7),
         nombre:nombre,
         concepto:l.concepto||'',
         capital:pay_cap,
@@ -3454,8 +3477,10 @@ function renderResumen(){
   // Sync visibility with active tab
   var isGrafica=(typeof RES_TAB!=='undefined'&&RES_TAB==='grafica');
   var cw=document.getElementById('res-chart-wrap');
+  var cc=document.getElementById('res-chart-controls');
   var tw=document.getElementById('res-table-wrap');
   if(cw) cw.style.display=isGrafica?'':'none';
+  if(cc) cc.style.display=isGrafica?'':'none';
   if(tw) tw.style.display=isGrafica?'none':'';
   if(isGrafica) renderResumenChart();
 }
