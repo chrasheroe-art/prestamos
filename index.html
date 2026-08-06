@@ -1124,7 +1124,7 @@ function sendWAComprobante(lid,idx,nombreEnc,phone){
   var abonado=p.abonado||0;
   if(abonado<=0){showNotif('Este pago no tiene abonos registrados');return;}
   var atr=calcAtraso(loan,idx,p);
-  var totalFinal=Math.max(0,Math.round((p.amount+atr.monto-(p.descuento||0))*100)/100);
+  var totalFinal=Math.max(0,Math.round((p.amount+atr.monto-desc)*100)/100);
   var restante=Math.max(0,totalFinal-abonado);
   // Obtener último abono registrado
   var ultAbono=DB.payments.filter(function(pm){
@@ -3200,10 +3200,9 @@ function renderResumenChart(){
     }else{
       key=r.m?(r.y+'-'+r.m):'Sin fecha';
     }
-    if(!groups[key]) groups[key]={key:key,capital:0,interes:0,atraso:0,descuento:0,abonado:0,restante:0};
+    if(!groups[key]) groups[key]={key:key,capital:0,interes:0,descuento:0,abonado:0,restante:0};
     groups[key].capital   +=r.capital||0;
     groups[key].interes   +=r.interes||0;
-    groups[key].atraso    +=r.atraso||0;
     groups[key].descuento +=r.descuento||0;
     groups[key].abonado   +=r.abonado||0;
     groups[key].restante  +=r.restante||0;
@@ -3219,15 +3218,15 @@ function renderResumenChart(){
   var BAR_H=200; // px altura máxima de barra
 
   // Totales para las tarjetas
-  var totCap=0,totInt=0,totAtr=0,totDesc=0,totAbo=0,totRest=0;
+  var totCap=0,totInt=0,totDesc=0,totAbo=0,totRest=0;
   rows.forEach(function(r){
-    totCap+=r.capital; totInt+=r.interes; totAtr+=r.atraso||0;
+    totCap+=r.capital; totInt+=r.interes;
     totDesc+=r.descuento||0; totAbo+=r.abonado||0; totRest+=r.restante;
   });
 
   // Tarjetas de totales (mismos valores que la tabla)
   var totalesHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px;">';
-  [{l:'Capital',v:totCap,c:'#2563B0'},{l:'Interés',v:totInt,c:'#16A34A'},{l:'Atraso',v:totAtr,c:'#DC2626'},
+  [{l:'Capital',v:totCap,c:'#2563B0'},{l:'Interés',v:totInt,c:'#16A34A'},
    {l:'Descuento',v:totDesc,c:'#3B82F6'},{l:'Abonado',v:totAbo,c:'#7C3AED'},{l:'Restante',v:totRest,c:'#EA580C'}]
   .forEach(function(t){
     totalesHtml+='<div style="background:var(--bg);border-radius:8px;padding:8px 10px;border-left:3px solid '+t.c+';">'
@@ -3239,9 +3238,9 @@ function renderResumenChart(){
 
   // ── GRÁFICA DE BARRAS APILADAS ──────────────────────────────
   // Cada barra = un grupo (cliente o mes)
-  // Segmentos apilados de abajo a arriba: Abonado | Capital | Interés | Atraso
+  // Segmentos apilados de abajo a arriba: Abonado | Capital | Interés
   //   - Abonado (morado) en la base → lo que ya se cobró
-  //   - Capital (azul) + Interés (verde) + Atraso (rojo) encima → lo pendiente
+  //   - Capital (azul) + Interés (verde) encima → lo pendiente
   // Altura total de la barra = Restante de las tarjetas
   // Tooltip al tocar: valores exactos por segmento
 
@@ -3259,11 +3258,6 @@ function renderResumenChart(){
     // Proporciones de cada segmento dentro de la barra
     var hTotal=Math.round(rest/maxVal*BAR_H);
 
-    // Componentes del restante: cap + int + atr - desc - abo = rest
-    // Los mostramos como segmentos proporcionales a su valor dentro de rest
-    var compTotal=g.capital+g.interes+g.atraso; // suma antes de descuento y abono
-    if(compTotal<=0) compTotal=1;
-
     // Cada segmento: altura proporcional a su fracción del restante
     function seg(val,color,label){
       if(val<=0) return '';
@@ -3274,11 +3268,10 @@ function renderResumenChart(){
         +'</div>';
     }
 
-    // Orden visual de abajo a arriba: Atraso | Interés | Capital | Abonado (base)
+    // Orden visual de abajo a arriba: Interés | Capital | Abonado (base)
     // Base = abonado (ya pagado, en la parte inferior)
     // Encima: componentes pendientes apilados
     var stackHtml=''
-      +seg(g.atraso,   '#DC2626','Atraso')    // rojo arriba
       +seg(g.interes,  '#16A34A','Interés')   // verde
       +seg(g.capital,  '#2563B0','Capital')   // azul
       +seg(g.abonado,  '#7C3AED','Abonado');  // morado base
@@ -3305,7 +3298,6 @@ function renderResumenChart(){
     +'<div class="chart-legend-item"><div class="chart-legend-dot" style="background:#7C3AED;"></div>Abonado (cobrado)</div>'
     +'<div class="chart-legend-item"><div class="chart-legend-dot" style="background:#2563B0;"></div>Capital pendiente</div>'
     +'<div class="chart-legend-item"><div class="chart-legend-dot" style="background:#16A34A;"></div>Interés pendiente</div>'
-    +'<div class="chart-legend-item"><div class="chart-legend-dot" style="background:#DC2626;"></div>Atraso</div>'
     +'</div>';
 
   wrap.innerHTML=totalesHtml
