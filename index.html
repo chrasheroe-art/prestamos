@@ -1287,67 +1287,76 @@ function renderDPay(){
   var cid=S.client;
   var loans=DB.loans.filter(function(l){return String(l.cliente_id)===String(cid);});
   var html='';
+  
   if(S.dtab==='deudas'){
-    // Only show PENDING payments (paid ones disappear from this list)
+    // Only show PENDING payments
     var items=[];
     loans.forEach(function(loan){
       getSched(loan).forEach(function(p,i){
         if(p.status!=='pagado') items.push({loan:loan,p:p,i:i});
       });
     });
+    
     items.sort(function(a,b){return new Date(a.p.date)-new Date(b.p.date);});
+    
     if(!items.length){
       html='<div class="empty"><div class="empty-ico">✅</div><div>Sin pagos pendientes</div></div>';
     }else{
       items.forEach(function(it){
-        var loan=it.loan,p=it.p,i=it.i;
+        var loan=it.loan, p=it.p, i=it.i;
         var sched=getSched(loan);
         var u=dateUrg(p.date,p.status);
         var abonado=p.abonado||0;
         var descuento=p.descuento||0;
         var isPartial=p.status==='parcial';
+        
+        // Clases y estilos según estado
         var pc=isPartial?' partial':u==='overdue'?' ov':u==='warning'?' wa':'';
         var ibg=isPartial?'var(--orange-light)':u==='overdue'?'var(--red-light)':u==='warning'?'var(--orange-light)':'var(--blue-light)';
         var ico=isPartial?'½':u==='overdue'?'⚠':'📋';
         var dc='pi-date'+(u==='overdue'?' red':u==='warning'?' orange':'');
+        
+        // Cálculos financieros
         var atr=calcAtraso(loan,i,p);
         var totalFinal=Math.max(0,Math.round((p.amount+atr.monto-descuento)*100)/100);
         var restante=Math.max(0,totalFinal-abonado);
         var amtColor=u==='overdue'?'var(--red)':u==='warning'?'var(--orange)':'var(--text)';
+        
+        // HTML del monto a la derecha
         var amtHtml='<div style="text-align:right;">'
           +'<div class="pi-amt" style="color:'+amtColor+';">'+fmt(restante)+'</div>'
           +(abonado>0?'<div style="font-size:10px;color:var(--muted);">de '+fmt(totalFinal)+'</div>':'')
           +'</div>';
+          
+        // Pill de estado
         var pill=isPartial?'<span class="pill p-orange">🔄 '+fmt(abonado)+' abonado · resta '+fmt(restante)+'</span>'
-          :u==='overdue'?'<span class="pill p-red">⚠ Vencido</span>'
+          :u==='overdue'?'<span class="pill p-red"> Vencido</span>'
           :u==='warning'?'<span class="pill p-orange">🕐 Próximo</span>'
           :'<span class="pill p-blue">Pendiente</span>';
-        // Desglose capital + interés + atraso − descuento − abonado = restante
-        // Desglose CORRECTO de capital + interés
-var loan_n=loan.num_pagos||1;
-var ov_card=(DB.overrides[loan.id]&&DB.overrides[loan.id][i])||{};
-var pay_cap, pay_int;
+          
+        // --- DESGLOSE CORRECTO DE CAPITAL E INTERÉS ---
+        var loan_n=loan.num_pagos||1;
+        var ov_card=(DB.overrides[loan.id]&&DB.overrides[loan.id][i])||{};
+        var pay_cap, pay_int;
 
-if(ov_card.capital!==undefined && ov_card.interes!==undefined){
-    // Si hay override completo, usar esos valores directamente
-    pay_cap=ov_card.capital;
-    pay_int=ov_card.interes;
-}else{
-    // Calcular proporcionalmente del total original del préstamo
-    var totalLoan=(loan.monto||0)*(1+(loan.interes||0)/100)+(loan.proration||0);
-    var interesTotal=totalLoan-(loan.monto||0);
-    
-    pay_cap=Math.round((loan.monto||0)/loan_n*100)/100;
-    pay_int=Math.round(interesTotal/loan_n*100)/100;
-    
-    // Si hay override de amount (monto editado), ajustar proporcionalmente
-    if(ov_card.amount!==undefined && ov_card.amount>0){
-        var expectedPerPay=totalLoan/loan_n;
-        var ratio=ov_card.amount/expectedPerPay;
-        pay_cap=Math.round(pay_cap*ratio*100)/100;
-        pay_int=Math.round((ov_card.amount-pay_cap)*100)/100;
-    }
-}
+        if(ov_card.capital!==undefined && ov_card.interes!==undefined){
+            pay_cap=ov_card.capital;
+            pay_int=ov_card.interes;
+        }else{
+            var totalLoan=(loan.monto||0)*(1+(loan.interes||0)/100)+(loan.proration||0);
+            var interesTotal=totalLoan-(loan.monto||0);
+            
+            pay_cap=Math.round((loan.monto||0)/loan_n*100)/100;
+            pay_int=Math.round(interesTotal/loan_n*100)/100;
+            
+            if(ov_card.amount!==undefined && ov_card.amount>0){
+                var expectedPerPay=totalLoan/loan_n;
+                var ratio=ov_card.amount/expectedPerPay;
+                pay_cap=Math.round(pay_cap*ratio*100)/100;
+                pay_int=Math.round((ov_card.amount-pay_cap)*100)/100;
+            }
+        }
+        
         var breakdownHtml='<div style="font-size:11px;font-family:DM Mono,monospace;padding:5px 0 2px;display:flex;flex-wrap:wrap;align-items:center;gap:3px;">'
           +'<span style="color:var(--muted);">'+fmt(pay_cap)+'</span>'
           +'<span style="color:var(--muted);font-size:10px;">+</span>'
@@ -1358,47 +1367,78 @@ if(ov_card.capital!==undefined && ov_card.interes!==undefined){
           +'<span style="color:var(--muted);font-size:10px;">=</span>'
           +'<span style="color:var(--text);font-weight:700;">'+fmt(restante)+'</span>'
           +'</div>';
-        html+='<div class="pi'+pc+'" onclick="openEditPay(\''+loan.id+'\','+i+')" style="cursor:pointer;">'
-          +'<div class="pi-top"><div class="pi-ico" style="background:'+ibg+'">'+ico+'</div>'
-          +'<div class="pi-info"><div class="pi-name">'+(p.concept||loan.concepto)+' · Pago '+(i+1)+'/'+sched.length+'</div>'
-          +(loan.frecuencia==='daily_meter'&&loan.meter_start&&loan.daily_charge?(function(){
+          
+        // --- INFO ADICIONAL PARA PRÉSTAMOS DIARIOS ---
+        var extraInfo = '';
+        if(loan.frecuencia==='daily_meter'&&loan.meter_start&&loan.daily_charge){
             var hoy=new Date();hoy.setHours(12,0,0,0);
             var ini=new Date(loan.meter_start+'T12:00:00');
             var dias=Math.max(1,Math.floor((hoy-ini)/86400000)+1);
             var promesa=loan.meter_end?'Promesa: '+fmtDate(loan.meter_end):'';
             var pasado=loan.meter_end&&todayStr()>loan.meter_end;
-            return '<div style="font-size:11px;margin-top:2px;">'
+            extraInfo += '<div style="font-size:11px;margin-top:2px;">'
               +'<span style="color:var(--orange);font-weight:600;">⏱ '+dias+' días corridos × '+fmt(loan.daily_charge)+'</span>'
               +(promesa?'<span style="color:'+(pasado?'var(--red)':'var(--muted)')+';margin-left:6px;">'+(pasado?'⚠ ':'')+''+promesa+'</span>':'')
               +'</div>';
-          })():'')
-          +(loan.fecha_prestamo||loan.fecha_creacion?'<div style="font-size:10px;color:var(--muted);margin-top:1px;">📅 Inicio: '+fmtDate(loan.fecha_prestamo||loan.fecha_creacion)+'</div>':'')          +'<div class="'+dc+'">'+fmtDate(p.date)+'</div>'+pill+'</div>'+amtHtml+'</div>'
+        } else if(loan.frecuencia==='daily_percent'&&loan.dpct_start&&loan.dpct_rate){
+            var hoy=new Date();hoy.setHours(12,0,0,0);
+            var ini=new Date(loan.dpct_start+'T12:00:00');
+            var dias=Math.max(1,Math.floor((hoy-ini)/86400000)+1);
+            var interesDia=loan.monto*(loan.dpct_rate/100);
+            var promesa=loan.dpct_end?'Promesa: '+fmtDate(loan.dpct_end):'';
+            var pasado=loan.dpct_end&&todayStr()>loan.dpct_end;
+            extraInfo += '<div style="font-size:11px;margin-top:2px;">'
+              +'<span style="color:var(--purple);font-weight:600;"> '+dias+' días × '+loan.dpct_rate+'% = '+fmt(interesDia*dias)+'</span>'
+              +(promesa?'<span style="color:'+(pasado?'var(--red)':'var(--muted)')+';margin-left:6px;">'+(pasado?' ':'')+''+promesa+'</span>':'')
+              +'</div>';
+        }
+
+        if(loan.fecha_prestamo||loan.fecha_creacion){
+            extraInfo += '<div style="font-size:10px;color:var(--muted);margin-top:1px;">📅 Inicio: '+fmtDate(loan.fecha_prestamo||loan.fecha_creacion)+'</div>';
+        }
+
+        // Construcción final de la tarjeta
+        html+='<div class="pi'+pc+'" onclick="openEditPay(\''+loan.id+'\','+i+')" style="cursor:pointer;">'
+          +'<div class="pi-top">'
+            +'<div class="pi-ico" style="background:'+ibg+'">'+ico+'</div>'
+            +'<div class="pi-info">'
+              +'<div class="pi-name">'+(p.concept||loan.concepto)+' · Pago '+(i+1)+'/'+sched.length+'</div>'
+              +extraInfo
+              +'<div class="'+dc+'">'+fmtDate(p.date)+'</div>'
+              +pill
+            +'</div>'
+            +amtHtml
+          +'</div>'
           +breakdownHtml
           +'<div class="pi-actions">'
-          +'<button class="pi-btn" style="background:var(--green-light);color:var(--green);font-weight:700;" onclick="event.stopPropagation();pagarDesdeBoton(\''+loan.id+'\','+i+')">💳 Pagar</button>'
-          +'<button class="pi-btn pbr" onclick="event.stopPropagation();deletePay(\''+loan.id+'\','+i+')">🗑 Eliminar</button>'
-          +'<button class="pi-btn pbd" onclick="event.stopPropagation();openAlertModal(\''+loan.id+'\','+i+',\''+p.date+'\')">'+(hasAlert(loan.id,i)?'🔔 Alerta ✓':'🔔 Alerta')+'</button>'
-          +'</div></div>';
+            +'<button class="pi-btn" style="background:var(--green-light);color:var(--green);font-weight:700;" onclick="event.stopPropagation();pagarDesdeBoton(\''+loan.id+'\','+i+')">💳 Pagar</button>'
+            +'<button class="pi-btn pbr" onclick="event.stopPropagation();deletePay(\''+loan.id+'\','+i+')">🗑 Eliminar</button>'
+            +'<button class="pi-btn pbd" onclick="event.stopPropagation();openAlertModal(\''+loan.id+'\','+i+',\''+p.date+'\')">'+(hasAlert(loan.id,i)?'🔔 Alerta ✓':'🔔 Alerta')+'</button>'
+          +'</div>'
+        +'</div>';
       });
     }
   }else{
     // HISTORIAL — agrupado por préstamo
     var todosAbonos=DB.payments.filter(function(p){return loans.some(function(l){return String(l.id)===String(p.prestamo_id);});});
-    if(!todosAbonos.length){html='<div class="empty"><div class="empty-ico">💸</div><div>Sin pagos registrados</div></div>';}
-    else{
-      // Agrupar por préstamo mostrando encabezado con total cobrado
+    if(!todosAbonos.length){
+        html='<div class="empty"><div class="empty-ico">💸</div><div>Sin pagos registrados</div></div>';
+    }else{
       var byLoan={};
       loans.forEach(function(l){byLoan[l.id]=[];});
       todosAbonos.forEach(function(a){if(byLoan[a.prestamo_id]!==undefined)byLoan[a.prestamo_id].push(a);});
+      
       loans.forEach(function(loan){
         var grupo=byLoan[loan.id]||[];
         if(!grupo.length) return;
         grupo.sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
         var totalAbonado=grupo.filter(function(a){return a.estado!=='eliminado';}).reduce(function(s,a){return s+a.monto;},0);
+        
         html+='<div data-grupo="'+loan.id+'" style="background:var(--blue-pale);border-radius:var(--rs);padding:8px 12px;margin-bottom:6px;font-size:12px;font-weight:700;color:var(--blue);display:flex;justify-content:space-between;align-items:center;">'
           +'<span>📄 '+loan.concepto+'</span>'
           +'<span style="font-family:DM Mono,monospace;">'+fmt(totalAbonado)+'</span>'
           +'</div>';
+          
         grupo.forEach(function(a){
           var isElim=a.estado==='eliminado';
           var piCls=isElim?'pi eliminado':'pi done';
@@ -1406,19 +1446,25 @@ if(ov_card.capital!==undefined && ov_card.interes!==undefined){
           var icoTxt=isElim?'✕':'✓';
           var pillHtml=isElim?'<span class="pill p-red">Eliminado · Pago '+(parseInt(a.pago_index)+1)+'</span>':'<span class="pill p-green">Pago '+(parseInt(a.pago_index)+1)+'</span>';
           var amtCls=isElim?'pi-amt red':'pi-amt green';
-          html+='<div class="'+piCls+'" data-grupo-item="'+loan.id+'" style="margin-left:8px;"><div class="pi-top"><div class="pi-ico" style="background:'+icoBg+'">'+icoTxt+'</div>'
-            +'<div class="pi-info"><div class="pi-name">'+(a.notas||'Abono')+'</div>'
-            +'<div class="pi-date">'+fmtDate(a.fecha)+'</div>'+pillHtml+'</div>'
-            +'<div class="'+amtCls+'">'+fmt(a.monto)+'</div></div>'
+          
+          html+='<div class="'+piCls+'" data-grupo-item="'+loan.id+'" style="margin-left:8px;">'
+            +'<div class="pi-top">'
+              +'<div class="pi-ico" style="background:'+icoBg+'">'+icoTxt+'</div>'
+              +'<div class="pi-info">'
+                +'<div class="pi-name">'+(a.notas||'Abono')+'</div>'
+                +'<div class="pi-date">'+fmtDate(a.fecha)+'</div>'
+                +pillHtml
+              +'</div>'
+              +'<div class="'+amtCls+'">'+fmt(a.monto)+'</div>'
+            +'</div>'
             +'<div class="pi-actions"><button class="pi-btn pbr" onclick="openDelHist(\''+a.id+'\',\''+a.estado+'\')">🗑 Borrar</button></div>'
-            +'</div>';
+          +'</div>';
         });
       });
     }
   }
-    document.getElementById('d-pay').innerHTML=html;
+  document.getElementById('d-pay').innerHTML=html;
 }
-
 // ============================================================
 // WA / SMS — using direct window.open after user gesture
 // ============================================================
