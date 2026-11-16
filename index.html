@@ -553,7 +553,7 @@ body{background:var(--bg);color:var(--text);font-size:15px;overflow-x:hidden;}
     <div class="fg"><label class="fl">12. Notas</label><input class="fi" id="ep-notes" type="text" placeholder="Opcional"></div>
 
     <!-- 13. Guardar / Cerrar -->
-    <button class="btn-p" onclick="pagarDesdeBoton(document.getElementById('ep-lid').value,parseInt(document.getElementById('ep-idx').value))" style="margin-top:6px;background:var(--green);border-color:var(--green);">💳 Registrar pago completo</button>
+    <button class="btn-p" onclick="pagarDesdeBoton(document.getElementById('ep-lid').value,parseInt(document.getElementById('ep-idx').value))" style="margin-top:6px;background:var(--green);border-color:var(--green);">💳 Abonar</button>
     <button class="btn-p" onclick="saveEditPay()" style="margin-top:6px;">💾 Guardar cambios</button>
     <button class="btn-o" onclick="closeModal('m-ep')" style="margin-top:8px;">Cerrar</button>
   </div>
@@ -1414,6 +1414,7 @@ function renderDPay(){
             +'<button class="pi-btn" style="background:var(--green-light);color:var(--green);font-weight:700;" onclick="event.stopPropagation();pagarDesdeBoton(\''+loan.id+'\','+i+')">💳 Pagar</button>'
             +'<button class="pi-btn pbr" onclick="event.stopPropagation();deletePay(\''+loan.id+'\','+i+')">🗑 Eliminar</button>'
             +'<button class="pi-btn pbd" onclick="event.stopPropagation();openAlertModal(\''+loan.id+'\','+i+',\''+p.date+'\')">'+(hasAlert(loan.id,i)?'🔔 Alerta ✓':'🔔 Alerta')+'</button>'
+          +((loan.frecuencia==='daily_meter'||loan.frecuencia==='daily_percent')?'<button class="pi-btn pbw" onclick="event.stopPropagation();sendResumenDiario(\''+loan.id+'\','+i+')">📤 Enviar</button>':'')
           +'</div>'
         +'</div>';
       });
@@ -1473,6 +1474,49 @@ function buildPhone(cl){
   var phone=(cl.telefono||'').replace(/\D/g,'');
   if(phone.length===10)phone='52'+phone;
   return phone;
+}
+// ============================================================
+// MENSAJE DE RESUMEN (solo préstamos por día)
+// ============================================================
+function fmtMx(n){return '$'+(Math.round((n||0)*100)/100).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function diasTranscurridosLoan(loan){
+  var start=loan.frecuencia==='daily_percent'?loan.dpct_start:loan.meter_start;
+  if(!start)return 0;
+  var ov0=(DB.overrides[loan.id]&&DB.overrides[loan.id][0])||{};
+  // Si el cálculo está congelado, los días corren solo hasta la fecha promesa
+  if(loan.frecuencia==='daily_meter'&&ov0.meter_frozen){
+    var mEnd=ov0.meter_end_override||loan.meter_end||'';
+    if(mEnd&&mEnd>=start)return daysBetween(start,mEnd)+1;
+  }
+  if(loan.frecuencia==='daily_percent'&&ov0.dpct_frozen){
+    var dEnd=ov0.dpct_end_override||loan.dpct_end||'';
+    if(dEnd&&dEnd>=start)return daysBetween(start,dEnd)+1;
+  }
+  var hoy=new Date();hoy.setHours(12,0,0,0);
+  var ini=new Date(start+'T12:00:00');
+  return Math.max(1,Math.floor((hoy-ini)/86400000)+1);
+}
+function sendResumenDiario(lid,idx){
+  var loan=DB.loans.find(function(l){return String(l.id)===String(lid);});
+  if(!loan){showNotif('Préstamo no encontrado');return;}
+  var p=getSched(loan)[idx];
+  var atr=calcAtraso(loan,idx,p);
+  var totalFinal=Math.max(0,Math.round((p.amount+atr.monto-(p.descuento||0))*100)/100);
+  var restante=Math.max(0,Math.round((totalFinal-(p.abonado||0))*100)/100);
+  var dias=diasTranscurridosLoan(loan);
+  var cl=DB.clients.find(function(c){return String(c.id)===String(loan.cliente_id);});
+  var nombre=cl?' '+cl.nombre:'';
+  var msg='Buen día'+nombre+', el total de tu adeudo al día de hoy es de '+fmtMx(restante)
+    +(p.abonado>0?' (ya descontando '+fmtMx(p.abonado)+' de abonos)':'')
+    +'. El total de los días transcurridos es de '+dias+' día'+(dias!==1?'s':'')+'.';
+  var phone=buildPhone(cl);
+  if(phone.length>=12){
+    window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
+  }else{
+    // Sin teléfono: copiar el mensaje para pegarlo donde se necesite
+    if(navigator.clipboard){navigator.clipboard.writeText(msg).then(function(){showNotif('Cliente sin teléfono · Mensaje copiado al portapapeles');},function(){prompt('Copia el mensaje:',msg);});}
+    else{prompt('Copia el mensaje:',msg);}
+  }
 }
 function sendWA(lid,idx){
   var cl=S._cl;
